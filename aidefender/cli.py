@@ -120,6 +120,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("intrusion", help="detect inbound access, brute-force, and port scans with IP/geo intel")
     p.add_argument("--no-geo", action="store_true", help="skip reverse-DNS and geo lookup")
     p.add_argument("--no-block", action="store_true", help="detect only; do not block")
+    p.add_argument("--firewall", action="store_true", help="also drop caught public IPs in the OS firewall (opt-in)")
     p.add_argument("--deep-logs", action="store_true", help="also query macOS unified logs (slower)")
     return ap
 
@@ -391,6 +392,8 @@ def main(argv: list[str] | None = None) -> int:
         cfg.intrusion_geo = not args.no_geo
         if args.no_block:
             cfg.intrusion_auto_block = False
+        if args.firewall:
+            cfg.intrusion_firewall_block = True
         _state, alerts = run_intrusion_check(
             cfg,
             enrich=not args.no_geo,

@@ -186,6 +186,12 @@ class CliTest(unittest.TestCase):
             self.assertEqual(un.returncode, 0, un.stdout + un.stderr)
             self.assertFalse(dest.exists())
 
+    def test_intrusion_help_firewall_is_opt_in(self):
+        res = self.run_cli("intrusion", "--help", cwd=ROOT)
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        self.assertIn("--firewall", res.stdout)
+        self.assertIn("opt-in", res.stdout.lower())
+
     def test_intrusion_cli_json(self):
         with tempfile.TemporaryDirectory() as td:
             res = self.run_cli(

@@ -41,7 +41,9 @@ standard library by default; `psutil` + `watchdog` unlock full power.
 - **Electron UI**: desktop app for scan, protect, quarantine, live definitions
 - **Intrusion detection**: inbound SSH/RDP/VNC/SMB sessions from public IPs,
   failed-login brute force, port-scan bursts; reverse DNS + geo (country/city/ISP);
-  auto-blocklist the attacker and optionally drop them in the OS firewall
+  auto-blocklist the attacker. OS firewall drops are **opt-in**
+  (`intrusion_firewall_block` in config, or `intrusion --firewall`) so a
+  default install cannot lock you out.
 - **GitHub Releases**: CLI binaries (PyInstaller) and Electron installers (macOS/Windows/Linux)
 
 ## Desktop UI
@@ -126,6 +128,7 @@ aidefender service install
 aidefender service status
 aidefender intrusion
 aidefender --json intrusion --no-geo
+aidefender intrusion --firewall          # also drop caught public IPs in the OS firewall
 ```
 
 JSON for automation: add `--json` before the subcommand, e.g.

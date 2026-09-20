@@ -48,7 +48,7 @@ def engine_status(cfg: DefenderConfig | None = None) -> dict:
         },
         "intrusion": {
             "auto_block": bool(getattr(cfg, "intrusion_auto_block", True)),
-            "firewall_block": bool(getattr(cfg, "intrusion_firewall_block", True)),
+            "firewall_block": bool(getattr(cfg, "intrusion_firewall_block", False)),
             "geo": bool(getattr(cfg, "intrusion_geo", True)),
             "blocked_ips": len(load_blocked(cfg)),
         },

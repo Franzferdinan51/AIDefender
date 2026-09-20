@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from aidefender.blocklist import load_blocked
-from aidefender.config import get_config
+from aidefender.config import DefenderConfig, get_config
 from aidefender.geoip import enrich_ip, format_location
 from aidefender.intrusion import (
     AuthEvent,
@@ -100,6 +100,34 @@ class IntrusionTest(unittest.TestCase):
                 bad_ips=set(blocked),
             )
             self.assertTrue(flagged.suspicious)
+            self.assertFalse(blocked[ATTACKER]["firewall"]["attempted"])
+
+    def test_default_config_does_not_invoke_os_firewall(self):
+        self.assertFalse(DefenderConfig().intrusion_firewall_block)
+        import aidefender.blocklist as blocklist_mod
+
+        called: list[str] = []
+        orig = blocklist_mod.try_firewall_block
+
+        def _guard(ip: str):
+            called.append(ip)
+            raise AssertionError("OS firewall must not run on the default path")
+
+        blocklist_mod.try_firewall_block = _guard
+        self.addCleanup(lambda: setattr(blocklist_mod, "try_firewall_block", orig))
+        with tempfile.TemporaryDirectory() as td:
+            cfg = get_config(Path(td) / "cfg")
+            cfg.ensure_dirs()
+            self.assertFalse(cfg.intrusion_firewall_block)
+            conn = Connection(local="10.0.0.5:22", remote=f"{ATTACKER}:9", status="ESTABLISHED")
+            _state, alerts = evaluate_intrusions(
+                [conn], [], cfg=cfg, enrich=False, apply_blocks=True,
+            )
+            self.assertTrue(alerts)
+            self.assertEqual(alerts[0].action, "blocked-local")
+            self.assertEqual(called, [])
+            entry = load_blocked(cfg)[ATTACKER]
+            self.assertFalse(entry["firewall"]["attempted"])
 
     def test_brute_force_threshold(self):
         with tempfile.TemporaryDirectory() as td:

@@ -83,7 +83,7 @@ class DefenderConfig:
     clamd_socket: str = ""
     clamd_timeout_seconds: float = 8.0
     intrusion_auto_block: bool = True
-    intrusion_firewall_block: bool = True
+    intrusion_firewall_block: bool = False
     intrusion_geo: bool = True
     intrusion_brute_threshold: int = 4
     intrusion_scan_ports: int = 8
