@@ -73,7 +73,13 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.ui_artifact }}
-          path: ui/release/**
+          path: |
+            ui/release/*.dmg
+            ui/release/*.zip
+            ui/release/*.exe
+            ui/release/*.AppImage
+            ui/release/*.tar.gz
+          if-no-files-found: error
 
   publish:
     if: startsWith(github.ref, 'refs/tags/')
