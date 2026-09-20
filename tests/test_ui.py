@@ -62,6 +62,8 @@ class UiPackagingTest(unittest.TestCase):
             "Franzferdinan51/AIDefender/releases",
             "aidefender --json tools",
             "allow add",
+            "aidefender diag",
+            "allowlist.json",
         ):
             self.assertIn(needle, text, needle)
 

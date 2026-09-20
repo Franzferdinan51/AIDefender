@@ -4,7 +4,9 @@ Cross-platform **user-mode** defender for **macOS, Linux, and Windows** (v0.8.0)
 
 It scans files, watches folders, flags hostile processes and network sessions,
 detects internet-side logins and port scans, updates malware intel live, and
-can run as a login service or an Electron desktop app.
+can run as a login service or an Electron desktop app. People and **agents**
+share the same CLI: `--json` on every command, plus `tools` for a catalog of
+defensive actions.
 
 No kernel drivers. The default install is **stdlib-only**; `psutil` and
 `watchdog` are optional extras. OS firewall drops are **opt-in** so a default
@@ -65,6 +67,9 @@ aidefender scan ~/Downloads
 aidefender protect --once
 aidefender intrusion --no-geo    # skip geo if you are offline
 aidefender update                # pull live definitions
+aidefender --json tools          # catalog for agents
+aidefender diag                  # netstat/ARP/routes
+aidefender allow add --cidr 10.0.0.0/8 --note "home LAN"
 aidefender service install       # start at login
 ```
 
@@ -100,6 +105,13 @@ for scanners that need the industry test file.
 - **Optional ClamAV** — local `clamd` only (no cloud upload), off by default
 - **Desktop UI** — Electron app for scan, protect, quarantine, definitions,
   engines, and intrusion
+- **Allowlist** — IPs, CIDRs, ports, process names, paths, and SHA-256 hashes
+  the user trusts; skipped by scan, process, network, and intrusion checks
+- **Diagnostics** — `diag` wraps ss/netstat, listeners, ARP, and routes;
+  `capture` is a bounded receive-only packet summary via tcpdump/tshark
+  (Wireshark) when installed
+- **Local actions** — block/unblock IPs, quarantine files, SIGTERM a local
+  process (never pid 1 or the defender itself)
 - **Always-on** — `service install` writes a user LaunchAgent, systemd user
   unit, or Windows Startup script
 
@@ -167,14 +179,15 @@ binaries exist.
 ## Intrusion detection
 
 Caught public IPs are stored in `blocked-ips.json` under the config directory
-and honored by the network guard.
+and honored by the network guard. Trusted items go in `allowlist.json` (or
+`aidefender allow add`).
 
 | Default | Behavior |
 | --- | --- |
 | Local blocklist | **on** (`intrusion_auto_block`) |
 | OS firewall drop | **off** — set `intrusion_firewall_block` or pass `--firewall` |
 | Geo / rDNS | **on** — disable with `--no-geo` or `intrusion_geo: false` |
-| Allowlist | `intrusion_allow_ips` in config (your office SSH IP, etc.) |
+| Allowlist | `allowlist.json` plus `intrusion_allow_ips` in config |
 
 `--no-block` is detect-only. Private, loopback, and link-local addresses are
 never treated as intruders.
@@ -200,7 +213,7 @@ Override with `--config-dir`. Useful keys in `config.json`:
 | `clamd_enable` | `false` | Use a local ClamAV daemon |
 | `intrusion_auto_block` | `true` | Persist caught public IPs locally |
 | `intrusion_firewall_block` | `false` | Also drop them in the OS firewall |
-| `intrusion_allow_ips` | `[]` | Never treat these IPs as intruders |
+| `intrusion_allow_ips` | `[]` | Extra IPs merged into the allowlist |
 
 Cloud AI key: `AIDEFENDER_CLOUD_AI_API_KEY` or `OPENAI_API_KEY`.
 
@@ -229,7 +242,7 @@ suite on Ubuntu, macOS, and Windows (Python 3.9 / 3.11 / 3.12).
 ## Layout
 
 ```text
-aidefender/      core package (scan, protect, intrusion, AI, CLI)
+aidefender/      core package (scan, protect, intrusion, allow/block, diag, CLI)
 ui/              Electron desktop app
 tests/           stdlib unittest suite
 signatures.json  community intel feed (merged by `update`)
@@ -243,7 +256,8 @@ install.ps1      Windows installer
 
 AIDefender is the **user-mode** layer commercial AV runs outside the kernel:
 login service, on-access file events, live definitions, PE/ELF heuristics,
-process-image scanning, optional local clamd, and network/login IDS.
+process-image scanning, optional local clamd, network/login IDS, allowlisting,
+and netstat/packet diagnostics. Capture never injects packets.
 
 It does **not** ship a signed Windows minifilter, an Apple Endpoint Security
 system extension, or a vendor cloud-reputation network. Use it **with**
