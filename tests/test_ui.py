@@ -48,6 +48,21 @@ class UiPackagingTest(unittest.TestCase):
         self.assertIn("action-gh-release", wf)
         self.assertIn("tags:", wf)
 
+    def test_readme_documents_shipped_product(self):
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        for needle in (
+            "aidefender scan",
+            "aidefender intrusion",
+            "intrusion --firewall",
+            "opt-in",
+            "pip install",
+            "python -m unittest discover",
+            "blocked-ips.json",
+            "local_ai_base_url",
+            "Franzferdinan51/AIDefender/releases",
+        ):
+            self.assertIn(needle, text, needle)
+
     def test_pyinstaller_spec_exists(self):
         spec = (ROOT / "packaging" / "aidefender.spec").read_text(encoding="utf-8")
         self.assertIn("aidefender", spec)
