@@ -16,7 +16,7 @@ from .protect import run_protect
 from .quarantine import delete_quarantine, list_quarantine, quarantine_file, restore_quarantine
 from .scanner import scan_path
 from .signatures import load_db
-from .updater import update_signatures
+from .updater import load_intel_state, update_signatures
 from .watcher import monitor
 
 
@@ -83,8 +83,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("processes", help="list processes and flag suspicious ones")
     sub.add_parser("network", help="list network connections and flag risky ones")
 
-    p = sub.add_parser("update", help="update signature database")
+    p = sub.add_parser("update", help="update malware definitions / intel feed")
     p.add_argument("--source", default=None, help="URL or local JSON file (defaults to config signatures_url)")
+    p.add_argument("--force", action="store_true", help="ignore the auto-update interval")
 
     p = sub.add_parser("daemon", help="run periodic background defense loop")
     p.add_argument("--interval", type=int, default=3600, help="seconds between full directory sweeps")
@@ -244,8 +245,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "update":
-        update_signatures(args.source, cfg)
-        return 0
+        result = update_signatures(args.source, cfg, quiet=args.json)
+        if args.json:
+            print(json.dumps(result.to_dict(), indent=2))
+        return 0 if result.ok else 1
 
     if args.command == "daemon":
         if args.auto_quarantine:
@@ -277,7 +280,15 @@ def main(argv: list[str] | None = None) -> int:
             "quarantine_dir": cfg.quarantine_dir,
             "signatures_file": cfg.signatures_file,
             "signatures_version": db.version,
-            "signatures": {"hashes": len(db.hashes), "strings": len(db.strings)},
+            "signatures": db.counts(),
+            "intel": {
+                "info": db.info,
+                "updated": db.updated,
+                "url": cfg.signatures_url,
+                "auto_update": cfg.auto_update_definitions,
+                "interval_seconds": cfg.definition_update_interval_seconds,
+                **load_intel_state(cfg),
+            },
             "watch_paths": cfg.watch_paths,
             "auto_quarantine": cfg.auto_quarantine,
             "ai": {

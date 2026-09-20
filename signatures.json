@@ -1,5 +1,7 @@
 {
-  "version": "aidefender-feed-1",
+  "version": "aidefender-feed-2",
+  "updated": "2026-09-20",
+  "info": "Community malware intel: hashes, family strings, C2 hints, process tokens. Merged live by `aidefender update`.",
   "hashes": {},
   "strings": {
     "hvnc": "RemoteAccess:HVNC-String",
@@ -7,6 +9,51 @@
     "remcos": "RemoteAccess:Remcos-String",
     "cobalt strike": "HackTool:CobaltStrike-String",
     "meterpreter": "HackTool:Meterpreter-String",
-    "sekurlsa::": "HackTool:Mimikatz-Sekurlsa"
+    "sekurlsa::": "HackTool:Mimikatz-Sekurlsa",
+    "asyncrat": "RemoteAccess:AsyncRAT-String",
+    "nanocore": "RemoteAccess:NanoCore-String",
+    "njrat": "RemoteAccess:NJRat-String",
+    "darkcomet": "RemoteAccess:DarkComet-String",
+    "agenttesla": "Stealer:AgentTesla-String",
+    "redline stealer": "Stealer:RedLine-String",
+    "lumma stealer": "Stealer:Lumma-String",
+    "vidar stealer": "Stealer:Vidar-String",
+    "raccoon stealer": "Stealer:Raccoon-String",
+    "emotet": "Trojan:Emotet-String",
+    "qakbot": "Trojan:Qakbot-String",
+    "guloader": "Loader:GuLoader-String",
+    "wannacry": "Ransom:WannaCry-String",
+    "wannadecryptor": "Ransom:WannaCry-String",
+    "your files have been encrypted": "Ransom:Generic-Note",
+    "send bitcoin": "Ransom:Bitcoin-Note",
+    "eval($_post": "WebShell:PHP-Eval-POST",
+    "eval(base64_decode": "WebShell:PHP-Eval-Base64",
+    "xmrig": "Miner:XMRig-String"
+  },
+  "network": {
+    "ips": {
+      "127.0.0.2": "Test:Blocklist-Placeholder"
+    },
+    "ports": {
+      "4444": "C2:Metasploit-Default",
+      "31337": "C2:Elite-Default",
+      "1337": "C2:Leet-Default"
+    }
+  },
+  "processes": {
+    "names": {
+      "xmrig": "Miner:XMRig",
+      "procdump": "HackTool:ProcDump"
+    },
+    "cmdline": {
+      "vssadmin delete shadows": "Ransom:Shadow-Copy-Delete",
+      "bcdedit /set": "Ransom:Bcdedit-Recovery"
+    }
+  },
+  "families": {
+    "mimikatz": {"severity": "malicious", "kind": "credential-dumper", "info": "Credential dumper; signature-malicious on string/hash hit."},
+    "ransomware": {"severity": "malicious", "kind": "ransom", "info": "Look for note strings, vssadmin, and burst file encryption."},
+    "rat": {"severity": "malicious", "kind": "remote-access", "info": "Quasar/Remcos/AsyncRAT/NanoCore family strings."},
+    "stealer": {"severity": "malicious", "kind": "infostealer", "info": "RedLine/Lumma/Vidar/AgentTesla family strings."}
   }
 }

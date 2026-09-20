@@ -139,7 +139,7 @@ def _via_netstat() -> list[Connection] | None:
     return _parse_table(res.stdout)
 
 
-def _blocklists(cfg) -> tuple[set[str], set[int]]:
+def _blocklists(cfg, db=None) -> tuple[set[str], set[int]]:
     ips = set(EXAMPLE_BAD_IPS)
     ports = set(EXAMPLE_BAD_PORTS)
     if cfg is not None:
@@ -150,10 +150,13 @@ def _blocklists(cfg) -> tuple[set[str], set[int]]:
                 ports.add(int(item))
             except (TypeError, ValueError):
                 continue
+    if db is not None:
+        ips.update(db.ips.keys())
+        ports.update(db.ports.keys())
     return ips, ports
 
 
-def list_connections(cfg=None) -> list[Connection]:
+def list_connections(cfg=None, db=None) -> list[Connection]:
     rows: list[Connection] | None = None
     for source in (_via_psutil, _via_ss, _via_netstat):
         result = source()
@@ -162,7 +165,7 @@ def list_connections(cfg=None) -> list[Connection]:
             break
     if rows is None:
         return []
-    ips, ports = _blocklists(cfg)
+    ips, ports = _blocklists(cfg, db=db)
     out: list[Connection] = []
     for conn in rows:
         conn.suspicious = False
@@ -171,8 +174,8 @@ def list_connections(cfg=None) -> list[Connection]:
     return out
 
 
-def suspicious_connections(cfg=None) -> list[Connection]:
-    return [c for c in list_connections(cfg) if c.suspicious]
+def suspicious_connections(cfg=None, db=None) -> list[Connection]:
+    return [c for c in list_connections(cfg, db=db) if c.suspicious]
 
 
 def new_suspicious_connections(

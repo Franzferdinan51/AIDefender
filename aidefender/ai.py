@@ -181,7 +181,7 @@ def _chat_complete(
     }
     headers = {
         "Content-Type": "application/json",
-        "User-Agent": "AIDefender/0.3",
+        "User-Agent": "AIDefender/0.4",
         "Accept": "application/json",
     }
     if api_key:

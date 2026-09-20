@@ -76,6 +76,9 @@ class DefenderConfig:
     protect_interval_seconds: float = 10.0
     network_bad_ips: list = field(default_factory=lambda: ["127.0.0.2"])
     network_bad_ports: list = field(default_factory=lambda: [4444, 5555, 6666, 31337, 12345, 1337, 6667])
+    signatures_urls: list = field(default_factory=list)
+    definition_update_interval_seconds: float = 900.0
+    auto_update_definitions: bool = True
 
     def ensure_dirs(self) -> "DefenderConfig":
         Path(self.quarantine_dir).mkdir(parents=True, exist_ok=True)

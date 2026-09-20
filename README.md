@@ -27,8 +27,12 @@ standard library by default; `psutil` + `watchdog` unlock full power.
   LOLBins, encoded PowerShell, temp-dir executables
 - **Network guard**: risky ports/IPs, Tor, listen-on-malware-port;
   `psutil` → `ss` → `netstat` fallback
-- **Updater**: fetch merged `signatures.json` from URL or file
-- **Daemon**: periodic sweeps for scheduled protection
+- **Malware intel / virus definitions**: SHA-256 hashes, family strings
+  (ransomware, stealers, RATs, web shells), C2 IPs/ports, and process
+  tokens. `aidefender update` merges a live JSON feed; protect/daemon
+  refresh it on an interval so new definitions apply without restart.
+  A failed fetch keeps the last good database.
+- **Daemon**: periodic sweeps plus live definition refresh
 - **CLI**: human + `--json` output, exit code 1 on threats
 
 ## Quick start
@@ -75,7 +79,8 @@ aidefender quarantine list
 aidefender quarantine restore <id> --dest ./restored.bin
 aidefender processes
 aidefender network
-aidefender update
+aidefender update                          # pull live definitions (GitHub feed by default)
+aidefender --json update --source ./signatures.json
 aidefender daemon --interval 3600 --auto-quarantine
 aidefender daemon --once
 aidefender daemon --seconds 30

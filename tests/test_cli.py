@@ -137,6 +137,33 @@ class CliTest(unittest.TestCase):
             self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
             self.assertIn("monitor", res.stdout.lower())
 
+    def test_update_from_local_feed_twice(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            cfgdir = tmp / "cfg"
+            feed = tmp / "feed.json"
+            token = "aidefender-cli-intel-token"
+            feed.write_text(json.dumps({
+                "version": "cli-feed",
+                "info": "cli bulletin",
+                "strings": {token: "Test:CliToken"},
+            }), encoding="utf-8")
+            for _ in range(2):
+                res = self.run_cli(
+                    "--config-dir", str(cfgdir), "--json",
+                    "update", "--source", str(feed),
+                    cwd=ROOT,
+                )
+                self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+                payload = json.loads(res.stdout)
+                self.assertTrue(payload.get("ok"), payload)
+                self.assertEqual(payload.get("version"), "cli-feed")
+            sample = tmp / "hit.txt"
+            sample.write_text(f"see {token}\n", encoding="utf-8")
+            scan = self.run_cli("--config-dir", str(cfgdir), "scan", str(sample), cwd=ROOT)
+            self.assertEqual(scan.returncode, 1, scan.stdout + scan.stderr)
+            self.assertIn("MALICIOUS", scan.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

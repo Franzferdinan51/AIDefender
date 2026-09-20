@@ -73,6 +73,9 @@ def run_daemon(
         while True:
             if deadline is not None and time.time() >= deadline:
                 break
+            if cfg.auto_update_definitions:
+                from .updater import maybe_update
+                maybe_update(cfg, quiet=True)
             if protect:
                 state = protection_cycle(
                     cfg, state, extra_paths=paths, scan_persist=True, watch_files=False,

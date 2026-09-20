@@ -75,7 +75,7 @@ def protection_cycle(
         state.file_snap = new_snap
         state.file_findings = findings
 
-    procs = list_processes()
+    procs = list_processes(db=db)
     fresh_procs = new_suspicious_processes(procs, state.process_pids)
     state.process_pids = {p.pid for p in procs}
     state.new_processes = fresh_procs
@@ -98,7 +98,7 @@ def protection_cycle(
             except Exception:
                 pass
 
-    conns = list_connections(cfg)
+    conns = list_connections(cfg, db=db)
     fresh_conns = new_suspicious_connections(conns, state.conn_keys)
     state.conn_keys = {(c.local, c.remote) for c in conns}
     state.new_connections = fresh_conns
@@ -185,6 +185,9 @@ def run_protect(
             if deadline is not None and time.time() >= deadline:
                 break
             time.sleep(max(0.05, tick))
+            if cfg.auto_update_definitions:
+                from .updater import maybe_update
+                maybe_update(cfg, quiet=True)
             state = protection_cycle(
                 cfg, state, extra_paths=extra, on_threat=on_threat, scan_persist=False, quiet=quiet,
             )

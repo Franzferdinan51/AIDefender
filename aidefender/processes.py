@@ -43,7 +43,11 @@ class ProcessInfo:
                 "exe": self.exe, "suspicious": self.suspicious, "reasons": self.reasons}
 
 
-def flag_process(proc: ProcessInfo) -> ProcessInfo:
+def flag_process(
+    proc: ProcessInfo,
+    extra_names: dict[str, str] | None = None,
+    extra_cmdline: dict[str, str] | None = None,
+) -> ProcessInfo:
     lname = proc.name.lower()
     lcmd = proc.cmdline.lower()
     for bad in SUSPICIOUS_NAMES:
@@ -54,6 +58,16 @@ def flag_process(proc: ProcessInfo) -> ProcessInfo:
         if tok in lcmd:
             proc.suspicious = True
             proc.reasons.append(f"suspicious cmdline: {tok}")
+    for needle, label in (extra_names or {}).items():
+        n = needle.lower()
+        if n and (n in lname or n in lcmd):
+            proc.suspicious = True
+            proc.reasons.append(f"intel process: {label}")
+    for needle, label in (extra_cmdline or {}).items():
+        n = needle.lower()
+        if n and n in lcmd:
+            proc.suspicious = True
+            proc.reasons.append(f"intel cmdline: {label}")
     # Temp-location executables are a classic dropper sign.
     lexec = proc.exe.lower()
     if lexec and any(t in lexec for t in ("/tmp/", "/var/tmp/", "\\temp\\", "\\tmp\\", "appdata\\local\\temp")):
@@ -72,11 +86,11 @@ def _via_psutil() -> list[ProcessInfo] | None:
         try:
             info = p.info
             cmd = " ".join(info.get("cmdline") or [])
-            out.append(flag_process(ProcessInfo(
+            out.append(ProcessInfo(
                 pid=int(info.get("pid", 0)),
                 name=str(info.get("name") or ""),
                 cmdline=cmd, exe=str(info.get("exe") or ""),
-            )))
+            ))
         except Exception:
             continue
     return out
@@ -103,7 +117,7 @@ def _via_ps() -> list[ProcessInfo] | None:
             continue
         name = parts[1].split("/")[-1]
         cmd = parts[2] if len(parts) > 2 else ""
-        out.append(flag_process(ProcessInfo(pid=pid, name=name, cmdline=cmd)))
+        out.append(ProcessInfo(pid=pid, name=name, cmdline=cmd))
     return out
 
 
@@ -127,22 +141,28 @@ def _via_tasklist() -> list[ProcessInfo] | None:
                 pid = int(row[1].strip('"'))
             except ValueError:
                 continue
-            out.append(flag_process(ProcessInfo(pid=pid, name=name)))
+            out.append(ProcessInfo(pid=pid, name=name))
     except Exception:
         return None
     return out
 
 
-def list_processes() -> list[ProcessInfo]:
+def list_processes(db=None) -> list[ProcessInfo]:
+    rows: list[ProcessInfo] | None = None
     for source in (_via_psutil, _via_ps, _via_tasklist):
         result = source()
         if result is not None:
-            return result
-    return []
+            rows = result
+            break
+    if rows is None:
+        return []
+    extra_n = db.process_names if db is not None else None
+    extra_c = db.process_cmdline if db is not None else None
+    return [flag_process(p, extra_names=extra_n, extra_cmdline=extra_c) for p in rows]
 
 
-def suspicious_processes() -> list[ProcessInfo]:
-    return [p for p in list_processes() if p.suspicious]
+def suspicious_processes(db=None) -> list[ProcessInfo]:
+    return [p for p in list_processes(db=db) if p.suspicious]
 
 
 def new_suspicious_processes(
