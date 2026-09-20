@@ -23,6 +23,12 @@
       <button data-tab="intel">Definitions</button>
       <button data-tab="intrusion">Intrusion</button>
       <button data-tab="engines">Engines</button>
+      <button data-tab="analyze">Analyze</button>
+      <button data-tab="allow">Allowlist</button>
+      <button data-tab="diag">Diag</button>
+      <button data-tab="processes">Processes</button>
+      <button data-tab="network">Network</button>
+      <button data-tab="events">Events</button>
     </nav>
     <div class="cli-pill" id="cli-pill">CLI…</div>
   </aside>
@@ -87,6 +93,68 @@
         <button id="eng-refresh">Refresh</button>
       </div>
       <pre id="eng-out" class="panel"></pre>
+    </section>
+    <section id="analyze" class="tab">
+      <h1>Analyze</h1>
+      <p class="muted">Local-first AI triage of scan artifacts (not a full-file upload). Rogue-AI reasons from scan stay in the result text.</p>
+      <div class="row">
+        <input id="analyze-path" type="text" placeholder="File to analyze" />
+        <button id="pick-analyze">File</button>
+        <button id="run-analyze">Analyze</button>
+      </div>
+      <pre id="analyze-out" class="panel">Pick a file, then Analyze.</pre>
+    </section>
+    <section id="allow" class="tab">
+      <h1>Allowlist</h1>
+      <p class="muted">IPs, CIDRs, ports, processes, paths, and hashes the operator trusts. Skipped by scan, process, network, and intrusion.</p>
+      <div class="row">
+        <select id="allow-kind">
+          <option value="ip">ip</option>
+          <option value="cidr">cidr</option>
+          <option value="port">port</option>
+          <option value="process">process</option>
+          <option value="path">path</option>
+          <option value="hash">hash</option>
+        </select>
+        <input id="allow-value" type="text" placeholder="value" />
+        <input id="allow-note" type="text" placeholder="note (optional)" />
+        <button id="allow-list">allow list</button>
+        <button id="allow-add">allow add</button>
+        <button id="allow-remove" class="secondary">allow remove</button>
+      </div>
+      <pre id="allow-out" class="panel"></pre>
+    </section>
+    <section id="diag" class="tab">
+      <h1>Diag</h1>
+      <p class="muted">Netstat-class snapshot: connections, listeners, ARP, routes, available tools.</p>
+      <div class="row">
+        <button id="run-diag">Run diag</button>
+      </div>
+      <pre id="diag-out" class="panel"></pre>
+    </section>
+    <section id="processes" class="tab">
+      <h1>Processes</h1>
+      <p class="muted">List processes and flag suspicious names/cmdlines, including rogue-AI LLM API endpoints.</p>
+      <div class="row">
+        <button id="run-processes">List processes</button>
+      </div>
+      <pre id="processes-out" class="panel"></pre>
+    </section>
+    <section id="network" class="tab">
+      <h1>Network</h1>
+      <p class="muted">Sockets (ss/netstat/psutil) and risky remotes.</p>
+      <div class="row">
+        <button id="run-network">List network</button>
+      </div>
+      <pre id="network-out" class="panel"></pre>
+    </section>
+    <section id="events" class="tab">
+      <h1>Events</h1>
+      <p class="muted">Recent defense event log.</p>
+      <div class="row">
+        <button id="run-events">Load events</button>
+      </div>
+      <pre id="events-out" class="panel"></pre>
     </section>
   </main>
   <script src="app.js"></script>

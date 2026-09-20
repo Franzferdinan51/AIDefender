@@ -32,14 +32,19 @@ aside {
   background: linear-gradient(180deg, #3dd68c, #1f8f5a);
   color: #062416; font-weight: 800; display: grid; place-items: center;
 }
-nav { display: flex; flex-direction: column; gap: 6px; }
+nav { display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto; min-height: 0; }
 nav button, button {
   background: #1a2438;
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 6px 10px;
   cursor: pointer;
+  font-size: 13px;
+}
+select {
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
 }
 nav button.active, button:hover { border-color: var(--accent); }
 button.secondary { background: transparent; }

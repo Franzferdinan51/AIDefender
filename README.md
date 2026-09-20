@@ -234,6 +234,14 @@ npm start
 Or `python -m aidefender ui` after `npm install` in `ui/`. Release installers
 bundle a CLI binary next to the app.
 
+The window is a `--json` front-end for the same CLI. Existing tabs:
+Dashboard (status/engines), Scan, Protect, Quarantine list, Definitions
+(`update`), Intrusion, and Engines. Operator surfaces in the same window:
+**allowlist** (`allow list` / `allow add` / `allow remove`), **diag**,
+**processes**, **network**, **events**, and **analyze**. Scan/analyze result
+text includes rogue-AI reasons when the CLI returns them. Packet `capture`,
+OS `--firewall` block, and `act stop-process` stay CLI-only.
+
 ## Tests and CI
 
 ```bash

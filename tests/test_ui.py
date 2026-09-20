@@ -35,11 +35,45 @@ class UiPackagingTest(unittest.TestCase):
         self.assertIn("aidefender:run", text)
 
     def test_renderer_calls_json_commands(self):
-        text = (ROOT / "ui" / "renderer" / "app.js").read_text(encoding="utf-8")
-        self.assertIn('--json', text.replace("'", '"') or "--json")
-        self.assertIn("scan", text)
-        self.assertIn("update", text)
-        self.assertIn("protect", text)
+        js = (ROOT / "ui" / "renderer" / "app.js").read_text(encoding="utf-8")
+        html = (ROOT / "ui" / "renderer" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('<script src="app.js">', html)
+        self.assertNotIn("require(", js)
+        self.assertNotIn("module.exports", js)
+        self.assertIn("--json", js)
+        for needle in (
+            "status", "scan", "protect", "update", "intrusion", "engines",
+            "quarantine", "allow", "diag", "processes", "network", "events", "analyze",
+        ):
+            self.assertIn(needle, js, needle)
+            self.assertIn(needle, html, needle)
+        for argv in (
+            '["scan"]',
+            '["protect", "--once"]',
+            '["quarantine", "list"]',
+            '["update"]',
+            '["intrusion"]',
+            '["engines"]',
+            '["status"]',
+            '["allow", "list"]',
+            '["allow", "add"]',
+            '["allow", "remove"]',
+            '["diag"]',
+            '["processes"]',
+            '["network"]',
+            '["events"',
+            '["analyze"]',
+        ):
+            self.assertIn(argv, js, argv)
+        for tab in (
+            'data-tab="dash"', 'data-tab="scan"', 'data-tab="protect"',
+            'data-tab="quarantine"', 'data-tab="intel"', 'data-tab="intrusion"',
+            'data-tab="engines"', 'data-tab="analyze"', 'data-tab="allow"',
+            'data-tab="diag"', 'data-tab="processes"', 'data-tab="network"',
+            'data-tab="events"',
+        ):
+            self.assertIn(tab, html, tab)
+        self.assertIn("window.aidefender", js)
 
     def test_release_workflow_publishes_binaries(self):
         wf = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
@@ -67,6 +101,23 @@ class UiPackagingTest(unittest.TestCase):
             "rogue-AI",
         ):
             self.assertIn(needle, text, needle)
+
+    def test_readme_names_desktop_operator_surfaces(self):
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        start = text.find("## Desktop UI")
+        self.assertGreater(start, -1)
+        section = text[start : start + 1600]
+        for needle in (
+            "npm start",
+            "aidefender ui",
+            "allowlist",
+            "diag",
+            "processes",
+            "network",
+            "events",
+            "analyze",
+        ):
+            self.assertIn(needle, section, needle)
 
     def test_pyinstaller_spec_exists(self):
         spec = (ROOT / "packaging" / "aidefender.spec").read_text(encoding="utf-8")
