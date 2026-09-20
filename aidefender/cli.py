@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from . import __version__
 from .ai import AnalysisResult, analyze_finding
@@ -122,6 +123,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-block", action="store_true", help="detect only; do not block")
     p.add_argument("--firewall", action="store_true", help="also drop caught public IPs in the OS firewall (opt-in)")
     p.add_argument("--deep-logs", action="store_true", help="also query macOS unified logs (slower)")
+    p.add_argument("--connections-json", default=None, help="evaluate a JSON list of {local,remote,status} snapshots (DDOS/IDS)")
 
     p = sub.add_parser("allow", help="allowlist IPs/CIDRs/ports/processes/paths/hashes the user trusts")
     asub = p.add_subparsers(dest="alcommand", required=True)
@@ -445,11 +447,27 @@ def main(argv: list[str] | None = None) -> int:
             cfg.intrusion_auto_block = False
         if args.firewall:
             cfg.intrusion_firewall_block = True
+        extra_conns = None
+        collect = True
+        if args.connections_json:
+            from .network import Connection
+            raw = json.loads(Path(args.connections_json).read_text(encoding="utf-8"))
+            extra_conns = [
+                Connection(
+                    local=str(row.get("local", "")),
+                    remote=str(row.get("remote", "")),
+                    status=str(row.get("status", "")),
+                    pid=row.get("pid"),
+                )
+                for row in raw
+            ]
+            collect = False
         _state, alerts = run_intrusion_check(
             cfg,
+            connections=extra_conns,
             enrich=not args.no_geo,
             apply_blocks=not args.no_block,
-            collect=True,
+            collect=collect,
             unified_log=args.deep_logs,
         )
         if args.json:

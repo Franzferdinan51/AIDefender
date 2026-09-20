@@ -25,7 +25,8 @@ SYSTEM_PROMPT = (
     "(hashes, verdict, heuristic score/reasons/features, and a bounded "
     "text/hex sample) — not a full file. Reply with JSON only, no markdown: "
     '{"verdict":"clean|suspicious|malicious","confidence":0.0,"reasons":["..."]}. '
-    "confidence is 0..1. Never downgrade a signature-based malicious finding to clean."
+    "confidence is 0..1. Never downgrade a signature-based malicious finding "
+    "or a deterministic DDOS/malicious detector hit to clean."
 )
 
 HttpPost = Callable[[str, dict, bytes, float], tuple[int, str]]
@@ -85,6 +86,7 @@ def artifacts_from_finding(finding: Finding, cfg: DefenderConfig | None = None) 
         "signature_malicious": bool(finding.signature_hit),
         "sample_text": sample_text,
         "sample_hex": sample_hex,
+        "kind": "scan",
     }
 
 
@@ -143,6 +145,51 @@ def lock_signature_verdict(result: AnalysisResult, signature_malicious: bool) ->
         ]
         result.confidence = max(result.confidence, 1.0)
     return result
+
+
+def lock_deterministic_verdict(result: AnalysisResult, artifacts: dict) -> AnalysisResult:
+    result = lock_signature_verdict(result, bool(artifacts.get("signature_malicious")))
+    if result.verdict != "clean":
+        return result
+    det = str(artifacts.get("deterministic_verdict") or artifacts.get("scan_verdict") or "").lower()
+    kind = str(artifacts.get("kind") or "").lower()
+    category = str(artifacts.get("category") or "").lower()
+    if det in ("malicious", "ddos") or kind == "ddos" or category == "ddos":
+        result.verdict = "malicious"
+        result.reasons = list(result.reasons) + [
+            "deterministic malicious/DDOS finding cannot be downgraded to clean"
+        ]
+        result.confidence = max(result.confidence, 1.0)
+    return result
+
+
+def artifacts_from_attacking_ai(text: str, finding: Finding | None = None) -> dict:
+    return {
+        "kind": "attacking-ai",
+        "sample_text": (text or "")[:2000],
+        "scan_verdict": finding.verdict if finding else "suspicious",
+        "deterministic_verdict": finding.verdict if finding else "suspicious",
+        "reasons": list(finding.reasons[:30]) if finding else [],
+        "signature_malicious": bool(finding.signature_hit) if finding else False,
+        "score": finding.score if finding else 0,
+    }
+
+
+def artifacts_from_alert(alert) -> dict:
+    payload = alert.to_dict() if hasattr(alert, "to_dict") else dict(alert)
+    category = str(payload.get("category") or "")
+    kind = "ddos" if category == "ddos" else "intrusion"
+    det = "ddos" if category == "ddos" else str(payload.get("severity") or "suspicious")
+    return {
+        "kind": kind,
+        "category": category,
+        "deterministic_verdict": det,
+        "scan_verdict": det,
+        "ip": payload.get("ip", ""),
+        "reasons": list(payload.get("evidence") or [])[:30],
+        "signature_malicious": False,
+        "local_port": payload.get("local_port"),
+    }
 
 
 def stdlib_post(url: str, headers: dict, body: bytes, timeout: float) -> tuple[int, str]:
@@ -253,7 +300,7 @@ def analyze_artifacts(
                 model=model,
                 error="parse failure",
             )
-        return lock_signature_verdict(result, signature_hit)
+        return lock_deterministic_verdict(result, artifacts)
 
     if not _backends(cfg):
         reason = "no local or cloud AI backend configured"

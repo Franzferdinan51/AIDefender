@@ -1,6 +1,6 @@
 # AIDefender
 
-Cross-platform **user-mode** defender for **macOS, Linux, and Windows** (v0.9.0).
+Cross-platform **user-mode** defender for **macOS, Linux, and Windows** (v0.10.0).
 
 It scans files, watches folders, flags hostile processes and network sessions,
 detects internet-side logins and port scans, updates malware intel live, and
@@ -88,10 +88,18 @@ for scanners that need the industry test file.
 
 - **Scan** — SHA-256 hashes, string signatures, explainable heuristics (0–100),
   nested zip/tar with zip-bomb caps, PE/ELF injection and packer stamps,
-  plus **rogue-AI** prompt-injection / jailbreak / LLM-exfil text (no live model required)
+  plus **counter-AI vs attacking AI**: prompt-injection / jailbreak / LLM-exfil
+  (normalized so paraphrases still flag; no live model required)
 - **Unauthorized agent/LLM use** — process cmdlines and sockets aimed at common
-  LLM APIs (`api.openai.com`, Anthropic, Groq, OpenRouter, …) or agent-runtime
-  tokens; suppress with `allow add --process` / `--ip`
+  LLM APIs (`api.openai.com`, Anthropic, Groq, OpenRouter, Azure OpenAI, …)
+  or agent-runtime tokens; suppress with `allow add --process` / `--ip`
+- **DDOS protection** (host-level): many public sources or SYN_RECV floods on
+  a listener raise a **ddos** alert distinct from port-scan/brute-force;
+  offenders can enter the local blocklist; OS firewall stays opt-in
+- **Local-first AI assist** on scan findings, attacking-AI artifacts, and
+  DDOS/intrusion alerts (`analyze` / `analyze_artifacts`). Deterministic
+  detectors stay the source of truth; the model cannot downgrade malicious
+  or DDOS to clean; `unavailable` is never implicit clean
 - **Quarantine** — isolate / list / restore / delete with metadata
 - **Protect / monitor** — on-access file events (Linux fanotify when available;
   otherwise FSEvents / ReadDirectoryChanges / polling), settle + debounce,

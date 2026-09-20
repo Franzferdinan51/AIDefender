@@ -84,7 +84,7 @@ class AuthEvent:
 class IntrusionAlert:
     ip: str
     severity: str  # suspicious | malicious
-    category: str  # inbound-session | brute-force | port-scan | remote-login
+    category: str  # inbound-session | brute-force | port-scan | remote-login | ddos
     evidence: list[str] = field(default_factory=list)
     local_port: int | None = None
     service: str = ""
@@ -105,6 +105,7 @@ class IntrusionAlert:
 @dataclass
 class IntrusionState:
     port_hits: deque = field(default_factory=deque)  # (ts, ip, local_port)
+    flood_hits: deque = field(default_factory=deque)  # (ts, ip, local_port, status)
     auth_hits: deque = field(default_factory=deque)  # (ts, ip)
     seen_keys: set = field(default_factory=set)
     alerts: list = field(default_factory=list)
@@ -237,6 +238,8 @@ def evaluate_intrusions(
     now = time.time() if now is None else now
     brute_n = int(getattr(cfg, "intrusion_brute_threshold", 4) or 4)
     scan_n = int(getattr(cfg, "intrusion_scan_ports", 8) or 8)
+    ddos_sources = int(getattr(cfg, "intrusion_ddos_sources", 12) or 12)
+    ddos_syn = int(getattr(cfg, "intrusion_ddos_syn", 20) or 20)
     window = float(getattr(cfg, "intrusion_window_seconds", 300) or 300)
     from .allowlist import is_ip_allowed
     allow = {normalize_ip(x) for x in (getattr(cfg, "intrusion_allow_ips", None) or [])}
@@ -266,7 +269,8 @@ def evaluate_intrusions(
         inbound, rip, lport, service = inbound_session(conn)
         if not rip or rip in allow or is_ip_allowed(cfg, rip):
             continue
-        if inbound:
+        status = (conn.status or "").upper()
+        if inbound and status in {"ESTABLISHED", "CLOSE_WAIT"}:
             key = ("in", rip, lport, conn.status)
             if key not in state.seen_keys:
                 state.seen_keys.add(key)
@@ -284,11 +288,14 @@ def evaluate_intrusions(
                         ts=now,
                     )
                 )
-        status = (conn.status or "").upper()
         if is_public_ip(rip) and lport and (
             inbound or lport in SENSITIVE_PORTS or status in {"SYN_RECV", "SYN_RCVD"}
         ):
             state.port_hits.append((now, rip, lport))
+        if is_public_ip(rip) and lport and (
+            status in {"SYN_RECV", "SYN_RCVD"} or inbound
+        ):
+            state.flood_hits.append((now, rip, lport, status))
     keep(state.port_hits)
     ports_by_ip: dict[str, set[int]] = defaultdict(set)
     for ts, ip, port in state.port_hits:
@@ -307,6 +314,39 @@ def evaluate_intrusions(
                         category="brute-force",
                         evidence=[f"{count} failed authentications in {int(window)}s"],
                         service="auth",
+                        ts=now,
+                    )
+                )
+
+    keep(state.flood_hits)
+    sources_by_port: dict[int, set[str]] = defaultdict(set)
+    syn_by_port: dict[int, int] = defaultdict(int)
+    for ts, ip, port, status in state.flood_hits:
+        if now - ts > window:
+            continue
+        if ip in allow or is_ip_allowed(cfg, ip) or not is_public_ip(ip):
+            continue
+        sources_by_port[port].add(ip)
+        if status in {"SYN_RECV", "SYN_RCVD"}:
+            syn_by_port[port] += 1
+    for port, ips in sources_by_port.items():
+        syn_n = syn_by_port.get(port, 0)
+        if len(ips) >= ddos_sources or syn_n >= ddos_syn:
+            key = ("ddos", port, int(now // 60))
+            if key not in state.seen_keys:
+                state.seen_keys.add(key)
+                offenders = sorted(ips)[:20]
+                alerts.append(
+                    IntrusionAlert(
+                        ip=offenders[0],
+                        severity="malicious",
+                        category="ddos",
+                        evidence=[
+                            f"DDOS flood on local port {port}: {len(ips)} distinct public sources, {syn_n} SYN_RECV",
+                            "offenders: " + ", ".join(offenders),
+                        ],
+                        local_port=port,
+                        service=SENSITIVE_PORTS.get(port, ""),
                         ts=now,
                     )
                 )
@@ -374,7 +414,7 @@ def evaluate_intrusions(
         out.append(alert)
         append_event(
             DefenseEvent(
-                kind="intrusion",
+                kind="ddos" if alert.category == "ddos" else "intrusion",
                 severity=alert.severity,
                 message=f"{alert.category} from {alert.ip} {format_location(alert.geo) if alert.geo else ''}".strip(),
                 details=alert.to_dict(),

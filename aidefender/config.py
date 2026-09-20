@@ -89,6 +89,8 @@ class DefenderConfig:
     intrusion_scan_ports: int = 8
     intrusion_window_seconds: float = 300.0
     intrusion_allow_ips: list = field(default_factory=list)
+    intrusion_ddos_sources: int = 12
+    intrusion_ddos_syn: int = 20
 
     def ensure_dirs(self) -> "DefenderConfig":
         Path(self.quarantine_dir).mkdir(parents=True, exist_ok=True)

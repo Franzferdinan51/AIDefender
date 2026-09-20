@@ -161,6 +161,55 @@ class IntrusionTest(unittest.TestCase):
                 apply_blocks=False,
             )
             self.assertTrue(any(a.category == "port-scan" for a in alerts), [a.category for a in alerts])
+            self.assertFalse(any(a.category == "ddos" for a in alerts), [a.category for a in alerts])
+
+    def test_ddos_many_sources_syn_flood(self):
+        with tempfile.TemporaryDirectory() as td:
+            cfg = make_cfg(Path(td))
+            cfg.intrusion_ddos_sources = 12
+            cfg.intrusion_ddos_syn = 20
+            conns = [
+                Connection(
+                    local="10.0.0.5:80",
+                    remote=f"203.0.113.{i}:40000",
+                    status="SYN_RECV",
+                )
+                for i in range(1, 13)
+            ]
+            _state, alerts = evaluate_intrusions(
+                conns, [], cfg=cfg, enrich=False, apply_blocks=True,
+            )
+            ddos = [a for a in alerts if a.category == "ddos"]
+            self.assertTrue(ddos, [a.category for a in alerts])
+            blob = " ".join(ddos[0].evidence)
+            self.assertIn("203.0.113.", blob)
+            self.assertIn("ddos", blob.lower())
+            self.assertIn("203.0.113.1", blob)
+            blocked = load_blocked(cfg)
+            self.assertTrue(blocked)
+            self.assertFalse(list(blocked.values())[0]["firewall"]["attempted"])
+
+    def test_ddos_quiet_snapshot_has_none(self):
+        with tempfile.TemporaryDirectory() as td:
+            cfg = make_cfg(Path(td))
+            conns = [
+                Connection(local="10.0.0.5:443", remote="203.0.113.9:9", status="ESTABLISHED"),
+            ]
+            _state, alerts = evaluate_intrusions(conns, [], cfg=cfg, enrich=False, apply_blocks=False)
+            self.assertFalse(any(a.category == "ddos" for a in alerts), [a.category for a in alerts])
+
+    def test_ddos_allowlisted_sources_skipped(self):
+        with tempfile.TemporaryDirectory() as td:
+            cfg = make_cfg(Path(td))
+            from aidefender.allowlist import add_entry
+            for i in range(1, 13):
+                add_entry(cfg, "ip", f"203.0.113.{i}", note="lab flood")
+            conns = [
+                Connection(local="10.0.0.5:80", remote=f"203.0.113.{i}:9", status="SYN_RECV")
+                for i in range(1, 13)
+            ]
+            _state, alerts = evaluate_intrusions(conns, [], cfg=cfg, enrich=False, apply_blocks=False)
+            self.assertFalse(any(a.category == "ddos" for a in alerts), [a.category for a in alerts])
 
     def test_private_ips_are_not_intruders(self):
         with tempfile.TemporaryDirectory() as td:

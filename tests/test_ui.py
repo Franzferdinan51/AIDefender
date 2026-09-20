@@ -99,6 +99,9 @@ class UiPackagingTest(unittest.TestCase):
             "aidefender diag",
             "allowlist.json",
             "rogue-AI",
+            "DDOS",
+            "counter-AI",
+            "Local-first AI assist",
         ):
             self.assertIn(needle, text, needle)
 
