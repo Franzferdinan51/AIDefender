@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 CATALOG = [
-    {"name": "scan", "argv": ["scan", "<path>"], "json": True, "action": False, "purpose": "Scan a file or directory for malware signatures and heuristics."},
+    {"name": "scan", "argv": ["scan", "<path>"], "json": True, "action": False, "purpose": "Scan a file or directory for malware, prompt-injection, and rogue-AI exfil signals."},
     {"name": "analyze", "argv": ["analyze", "<path>"], "json": True, "action": False, "purpose": "Local-first AI triage of scan artifacts (not a full-file upload)."},
     {"name": "protect", "argv": ["protect", "--once"], "json": True, "action": False, "purpose": "One tick of file + process + network + persistence + intrusion defense."},
     {"name": "intrusion", "argv": ["intrusion"], "json": True, "action": False, "purpose": "Detect inbound sessions, brute force, and scans; enrich IPs with geo/rDNS."},

@@ -13,8 +13,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .binary import analyze_binary
+from .rogue_ai import analyze_text as analyze_rogue_ai_text
 
-MODEL_VERSION = "aidefender-heuristics-3"
+MODEL_VERSION = "aidefender-heuristics-4"
 
 # Magic prefixes.
 PE_MAGIC = b"MZ"
@@ -167,6 +168,11 @@ def analyze_bytes(name: str, size: int, sample: bytes, head: bytes | None = None
     if hits:
         features["tokens"] = hits[:10]
         add(min(35, 10 + 5 * len(hits)), f"suspicious keywords: {', '.join(hits[:5])}")
+    delta_ai, ai_reasons, ai_feat = analyze_rogue_ai_text(text)
+    if delta_ai:
+        score += delta_ai
+        reasons.extend(ai_reasons)
+        features.update(ai_feat)
 
     # Tiny dropper + huge blob heuristics.
     if kind in ("pe", "elf", "macho") and 0 < size < 16 * 1024 and hits:

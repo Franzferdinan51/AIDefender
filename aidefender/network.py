@@ -85,6 +85,10 @@ def flag_connection(
     if lport in bad_ports and status in LISTEN_STATUSES:
         conn.suspicious = True
         conn.reasons.append(f"listening on common malware port {lport}")
+    from .rogue_ai import flag_remote
+    for reason in flag_remote(conn.remote) + flag_remote(conn.local):
+        conn.suspicious = True
+        conn.reasons.append(reason)
     return conn
 
 

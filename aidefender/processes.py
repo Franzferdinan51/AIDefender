@@ -58,6 +58,10 @@ def flag_process(
         if tok in lcmd:
             proc.suspicious = True
             proc.reasons.append(f"suspicious cmdline: {tok}")
+    from .rogue_ai import flag_cmdline
+    for reason in flag_cmdline(proc.cmdline):
+        proc.suspicious = True
+        proc.reasons.append(reason)
     for needle, label in (extra_names or {}).items():
         n = needle.lower()
         if n and (n in lname or n in lcmd):

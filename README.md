@@ -1,6 +1,6 @@
 # AIDefender
 
-Cross-platform **user-mode** defender for **macOS, Linux, and Windows** (v0.8.0).
+Cross-platform **user-mode** defender for **macOS, Linux, and Windows** (v0.9.0).
 
 It scans files, watches folders, flags hostile processes and network sessions,
 detects internet-side logins and port scans, updates malware intel live, and
@@ -87,7 +87,11 @@ for scanners that need the industry test file.
 ## What it does
 
 - **Scan** — SHA-256 hashes, string signatures, explainable heuristics (0–100),
-  nested zip/tar with zip-bomb caps, PE/ELF injection and packer stamps
+  nested zip/tar with zip-bomb caps, PE/ELF injection and packer stamps,
+  plus **rogue-AI** prompt-injection / jailbreak / LLM-exfil text (no live model required)
+- **Unauthorized agent/LLM use** — process cmdlines and sockets aimed at common
+  LLM APIs (`api.openai.com`, Anthropic, Groq, OpenRouter, …) or agent-runtime
+  tokens; suppress with `allow add --process` / `--ip`
 - **Quarantine** — isolate / list / restore / delete with metadata
 - **Protect / monitor** — on-access file events (Linux fanotify when available;
   otherwise FSEvents / ReadDirectoryChanges / polling), settle + debounce,
