@@ -57,6 +57,18 @@ class DefenderConfig:
     heuristic_suspicious: int = 40
     heuristic_malicious: int = 75
     watch_paths: field = field(default_factory=default_watch_paths)  # type: ignore
+    archive_max_depth: int = 3
+    archive_max_members: int = 256
+    archive_max_member_bytes: int = 8 * 1024 * 1024
+    archive_max_total_bytes: int = 32 * 1024 * 1024
+    local_ai_base_url: str = "http://127.0.0.1:11434/v1"
+    local_ai_model: str = "llama3.2"
+    local_ai_api_key: str = ""
+    cloud_ai_base_url: str = ""
+    cloud_ai_model: str = ""
+    cloud_ai_api_key: str = ""
+    ai_timeout_seconds: float = 8.0
+    ai_sample_bytes: int = 4096
 
     def ensure_dirs(self) -> "DefenderConfig":
         Path(self.quarantine_dir).mkdir(parents=True, exist_ok=True)

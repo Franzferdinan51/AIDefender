@@ -4,6 +4,9 @@
   "strings": {
     "hvnc": "RemoteAccess:HVNC-String",
     "quasar rat": "RemoteAccess:Quasar-String",
-    "remcos": "RemoteAccess:Remcos-String"
+    "remcos": "RemoteAccess:Remcos-String",
+    "cobalt strike": "HackTool:CobaltStrike-String",
+    "meterpreter": "HackTool:Meterpreter-String",
+    "sekurlsa::": "HackTool:Mimikatz-Sekurlsa"
   }
 }

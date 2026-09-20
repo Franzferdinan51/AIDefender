@@ -10,8 +10,15 @@ standard library by default; `psutil` + `watchdog` unlock full power.
 ## Features
 
 - **Scanner**: SHA-256 signatures + portable string rules + heuristic score (0–100)
+- **Nested archives**: zip/tar (including gzip) walked in memory with depth,
+  member-count, and decompressed-size caps so zip bombs cannot hang a scan
 - **AI heuristics**: entropy, extension/content mismatch, double-extension,
-  suspicious keywords, curl|sh droppers — every point explained
+  dropper/LOLBin/family tokens, curl|sh droppers — every point explained
+- **Local-first AI triage**: `analyze` sends scan artifacts (hash, verdict,
+  score/reasons/features, bounded text/hex sample) to a localhost
+  OpenAI-compatible server (Ollama / LM Studio / llama.cpp) and falls back
+  to a configured cloud API only when local is unset or unreachable. A
+  signature `malicious` finding cannot be downgraded to `clean`.
 - **Quarantine**: isolate / list / restore / delete with metadata
 - **Real-time monitor**: `watchdog` when installed, portable polling fallback
 - **Process guard**: `psutil` → `ps` → `tasklist` fallback chain
@@ -54,6 +61,8 @@ python -m aidefender status
 
 ```bash
 aidefender scan ./suspect-dir --quarantine
+aidefender analyze ./suspect.bin          # local Ollama/LM Studio first, then cloud
+aidefender analyze ./suspect.bin --local-url http://127.0.0.1:1234/v1 --model local-model
 aidefender monitor ~/Downloads ~/Desktop
 aidefender quarantine list
 aidefender quarantine restore <id> --dest ./restored.bin
@@ -65,7 +74,13 @@ aidefender daemon --once
 ```
 
 JSON for automation: add `--json` before the subcommand, e.g.
-`aidefender --json scan ./dir`.
+`aidefender --json scan ./dir` or `aidefender --json analyze ./file`.
+
+Local AI defaults to `http://127.0.0.1:11434/v1` (Ollama). Point
+`local_ai_base_url` at LM Studio (`http://127.0.0.1:1234/v1`) or any
+OpenAI-compatible endpoint. Set `cloud_ai_base_url` plus
+`AIDEFENDER_CLOUD_AI_API_KEY` / `OPENAI_API_KEY` for API fallback.
+Deterministic `scan` never opens a network connection.
 
 ## Safety test (harmless)
 

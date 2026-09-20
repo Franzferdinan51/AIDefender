@@ -11,7 +11,7 @@ from .signatures import SignatureDB, load_db, save_db
 
 def fetch_json(source: str, timeout: int = 20) -> dict:
     if source.startswith(("http://", "https://")):
-        req = urllib.request.Request(source, headers={"User-Agent": "AIDefender/0.1"})
+        req = urllib.request.Request(source, headers={"User-Agent": "AIDefender/0.2"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
             return json.loads(resp.read().decode("utf-8"))
     return json.loads(Path(source).read_text(encoding="utf-8"))

@@ -6,6 +6,7 @@ import json
 import sys
 
 from . import __version__
+from .ai import AnalysisResult, analyze_finding
 from .config import get_config, save_config
 from .daemon import run_daemon
 from .network import list_connections
@@ -46,6 +47,13 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("scan", help="scan a file or directory")
     p.add_argument("target", help="file or directory to scan")
     p.add_argument("--quarantine", action="store_true", help="quarantine malicious hits")
+
+    p = sub.add_parser("analyze", help="local-first AI triage of scan artifacts (no full-file upload)")
+    p.add_argument("target", help="file or directory to scan then analyze")
+    p.add_argument("--local-url", default=None, help="override local OpenAI-compatible base URL")
+    p.add_argument("--cloud-url", default=None, help="override cloud OpenAI-compatible base URL")
+    p.add_argument("--model", default=None, help="override model name for the selected backend")
+    p.add_argument("--timeout", type=float, default=None, help="HTTP timeout seconds")
 
     p = sub.add_parser("monitor", help="real-time folder protection (Ctrl+C to stop)")
     p.add_argument("paths", nargs="*", help="folders to watch (defaults to config watch_paths)")
@@ -92,6 +100,49 @@ def main(argv: list[str] | None = None) -> int:
                     except OSError as exc:
                         print(f"quarantine failed for {f.path}: {exc}", file=sys.stderr)
         return _print_findings(findings, args.json)
+
+    if args.command == "analyze":
+        if args.local_url is not None:
+            cfg.local_ai_base_url = args.local_url
+        if args.cloud_url is not None:
+            cfg.cloud_ai_base_url = args.cloud_url
+        if args.model:
+            cfg.local_ai_model = args.model
+            if cfg.cloud_ai_model:
+                cfg.cloud_ai_model = args.model
+            elif args.cloud_url is not None:
+                cfg.cloud_ai_model = args.model
+        if args.timeout is not None:
+            cfg.ai_timeout_seconds = args.timeout
+        db = load_db(cfg.signatures_file)
+        findings = scan_path(args.target, db=db, cfg=cfg)
+        analyses = []
+        for f in findings:
+            if f.nested:
+                continue
+            try:
+                result = analyze_finding(f, cfg=cfg)
+            except Exception as exc:  # noqa: BLE001 — analyze must not crash scan
+                result = AnalysisResult(
+                    verdict="unavailable",
+                    reasons=[f"analysis failed: {exc}"],
+                    backend="none",
+                    error=str(exc),
+                )
+            payload = result.to_dict()
+            payload["path"] = f.path
+            f.analysis = payload
+            analyses.append(payload)
+            if not args.json:
+                print(f"[AI {result.backend:5}] {f.path} verdict={result.verdict} confidence={result.confidence}")
+                for reason in result.reasons:
+                    print(f"             - {reason}")
+                if result.error:
+                    print(f"             error: {result.error}")
+        code = _print_findings(findings, args.json)
+        if any(a.get("verdict") in ("malicious", "suspicious") for a in analyses):
+            return 1
+        return code
 
     if args.command == "monitor":
         monitor(args.paths or None, cfg=cfg)
@@ -164,6 +215,12 @@ def main(argv: list[str] | None = None) -> int:
             "signatures": {"hashes": len(db.hashes), "strings": len(db.strings)},
             "watch_paths": cfg.watch_paths,
             "auto_quarantine": cfg.auto_quarantine,
+            "ai": {
+                "local_ai_base_url": cfg.local_ai_base_url,
+                "local_ai_model": cfg.local_ai_model,
+                "cloud_ai_base_url": cfg.cloud_ai_base_url,
+                "cloud_ai_model": cfg.cloud_ai_model,
+            },
         }
         if args.json:
             print(json.dumps(info, indent=2))
