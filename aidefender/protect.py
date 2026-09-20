@@ -32,6 +32,8 @@ class ProtectionState:
     new_processes: list[ProcessInfo] = field(default_factory=list)
     new_connections: list[Connection] = field(default_factory=list)
     persistence_findings: list[Finding] = field(default_factory=list)
+    intrusion_alerts: list = field(default_factory=list)
+    intrusion_state: object | None = None
 
 
 def watch_targets(cfg: DefenderConfig, extra: list[str] | None = None) -> list[str]:
@@ -141,6 +143,34 @@ def protection_cycle(
                     on_threat(finding)
                 except Exception:
                     pass
+
+    from .intrusion import run_intrusion_check
+    istate, alerts = run_intrusion_check(
+        cfg,
+        connections=conns,
+        state=getattr(state, "intrusion_state", None),
+        enrich=bool(getattr(cfg, "intrusion_geo", True)),
+        apply_blocks=bool(getattr(cfg, "intrusion_auto_block", True)),
+        collect=True,
+        unified_log=False,
+    )
+    state.intrusion_state = istate
+    state.intrusion_alerts = alerts
+    for alert in alerts:
+        if not quiet:
+            loc = ""
+            if alert.geo:
+                from .geoip import format_location
+                loc = format_location(alert.geo)
+            print(
+                f"[INTRUDE ] {alert.severity} {alert.category} {alert.ip} "
+                f"{loc} action={alert.action} :: {'; '.join(alert.evidence[:3])}"
+            )
+        if on_threat:
+            try:
+                on_threat(alert)
+            except Exception:
+                pass
     return state
 
 

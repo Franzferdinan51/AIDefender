@@ -6,6 +6,7 @@ from .config import DefenderConfig, get_config
 from .onaccess import fanotify_supported, on_access_mode
 from .service import default_unit_path, service_installed
 from .signatures import load_db
+from .blocklist import load_blocked
 from .updater import load_intel_state
 
 
@@ -44,6 +45,12 @@ def engine_status(cfg: DefenderConfig | None = None) -> dict:
             "counts": db.counts(),
             "info": db.info,
             **load_intel_state(cfg),
+        },
+        "intrusion": {
+            "auto_block": bool(getattr(cfg, "intrusion_auto_block", True)),
+            "firewall_block": bool(getattr(cfg, "intrusion_firewall_block", True)),
+            "geo": bool(getattr(cfg, "intrusion_geo", True)),
+            "blocked_ips": len(load_blocked(cfg)),
         },
         "kernel_minifilter": False,
         "note": (

@@ -116,6 +116,11 @@ def build_parser() -> argparse.ArgumentParser:
     ssub.add_parser("status", help="whether the login service unit exists")
 
     sub.add_parser("ui", help="open the Electron desktop UI")
+
+    p = sub.add_parser("intrusion", help="detect inbound access, brute-force, and port scans with IP/geo intel")
+    p.add_argument("--no-geo", action="store_true", help="skip reverse-DNS and geo lookup")
+    p.add_argument("--no-block", action="store_true", help="detect only; do not block")
+    p.add_argument("--deep-logs", action="store_true", help="also query macOS unified logs (slower)")
     return ap
 
 
@@ -207,12 +212,14 @@ def main(argv: list[str] | None = None) -> int:
         threats = sum(1 for f in state.file_findings if f.verdict in ("malicious", "suspicious"))
         threats += len(state.new_processes) + len(state.new_connections)
         threats += sum(1 for f in state.persistence_findings if f.verdict in ("malicious", "suspicious"))
+        threats += len(getattr(state, "intrusion_alerts", None) or [])
         if args.json:
             print(json.dumps({
                 "files": [f.to_dict() for f in state.file_findings],
                 "processes": [p.to_dict() for p in state.new_processes],
                 "connections": [c.to_dict() for c in state.new_connections],
                 "persistence": [f.to_dict() for f in state.persistence_findings],
+                "intrusions": [a.to_dict() for a in (state.intrusion_alerts or [])],
             }, indent=2))
         return 1 if threats else 0
 
@@ -377,6 +384,30 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "ui":
         from .desktop import launch_ui
         return launch_ui()
+
+    if args.command == "intrusion":
+        from .geoip import format_location
+        from .intrusion import run_intrusion_check
+        cfg.intrusion_geo = not args.no_geo
+        if args.no_block:
+            cfg.intrusion_auto_block = False
+        _state, alerts = run_intrusion_check(
+            cfg,
+            enrich=not args.no_geo,
+            apply_blocks=not args.no_block,
+            collect=True,
+            unified_log=args.deep_logs,
+        )
+        if args.json:
+            print(json.dumps([a.to_dict() for a in alerts], indent=2))
+        else:
+            for a in alerts:
+                loc = format_location(a.geo) if a.geo else ""
+                print(f"[{a.severity.upper():10}] {a.category} {a.ip} {loc} action={a.action}")
+                for ev in a.evidence:
+                    print(f"             - {ev}")
+            print(f"\nintrusions={len(alerts)}")
+        return 1 if any(a.severity == "malicious" for a in alerts) else 0
 
     return 2
 

@@ -21,6 +21,7 @@
       <button data-tab="protect">Protect</button>
       <button data-tab="quarantine">Quarantine</button>
       <button data-tab="intel">Definitions</button>
+      <button data-tab="intrusion">Intrusion</button>
       <button data-tab="engines">Engines</button>
     </nav>
     <div class="cli-pill" id="cli-pill">CLI…</div>
@@ -70,6 +71,14 @@
         <button id="intel-update">Pull latest feed</button>
       </div>
       <pre id="intel-out" class="panel"></pre>
+    </section>
+    <section id="intrusion" class="tab">
+      <h1>Intrusion detection</h1>
+      <p class="muted">Inbound sessions, failed logins, and scans. Public IPs are geo-located and can be auto-blocked.</p>
+      <div class="row">
+        <button id="ids-check">Check now</button>
+      </div>
+      <pre id="ids-out" class="panel"></pre>
     </section>
     <section id="engines" class="tab">
       <h1>Engines</h1>

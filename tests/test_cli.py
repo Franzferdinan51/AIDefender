@@ -44,7 +44,7 @@ class CliTest(unittest.TestCase):
         for name in (
             "scan", "analyze", "protect", "monitor", "quarantine", "processes",
             "network", "update", "daemon", "events", "status", "engines",
-            "memory", "service", "ui",
+            "memory", "service", "ui", "intrusion",
         ):
             self.assertIn(name, res.stdout)
 
@@ -185,6 +185,17 @@ class CliTest(unittest.TestCase):
             )
             self.assertEqual(un.returncode, 0, un.stdout + un.stderr)
             self.assertFalse(dest.exists())
+
+    def test_intrusion_cli_json(self):
+        with tempfile.TemporaryDirectory() as td:
+            res = self.run_cli(
+                "--config-dir", str(Path(td) / "cfg"), "--json",
+                "intrusion", "--no-geo", "--no-block",
+                cwd=ROOT,
+            )
+            self.assertIn(res.returncode, (0, 1), res.stdout + res.stderr)
+            payload = json.loads(res.stdout or "[]")
+            self.assertIsInstance(payload, list)
 
 
 if __name__ == "__main__":

@@ -153,6 +153,12 @@ def _blocklists(cfg, db=None) -> tuple[set[str], set[int]]:
     if db is not None:
         ips.update(db.ips.keys())
         ports.update(db.ports.keys())
+    if cfg is not None:
+        try:
+            from .blocklist import load_blocked
+            ips.update(load_blocked(cfg).keys())
+        except Exception:
+            pass
     return ips, ports
 
 

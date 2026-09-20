@@ -39,6 +39,9 @@ standard library by default; `psutil` + `watchdog` unlock full power.
 - **Process images**: `memory` hashes running executables against the definition DB
 - **CLI**: human + `--json` output, exit code 1 on threats
 - **Electron UI**: desktop app for scan, protect, quarantine, live definitions
+- **Intrusion detection**: inbound SSH/RDP/VNC/SMB sessions from public IPs,
+  failed-login brute force, port-scan bursts; reverse DNS + geo (country/city/ISP);
+  auto-blocklist the attacker and optionally drop them in the OS firewall
 - **GitHub Releases**: CLI binaries (PyInstaller) and Electron installers (macOS/Windows/Linux)
 
 ## Desktop UI
@@ -121,6 +124,8 @@ aidefender engines
 aidefender memory
 aidefender service install
 aidefender service status
+aidefender intrusion
+aidefender --json intrusion --no-geo
 ```
 
 JSON for automation: add `--json` before the subcommand, e.g.

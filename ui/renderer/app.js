@@ -92,6 +92,12 @@ document.getElementById("intel-update").onclick = async () => {
   show("intel-out", pretty(res.text) + `\n\nexit=${res.code}`);
 };
 
+document.getElementById("ids-check").onclick = async () => {
+  show("ids-out", "Checking inbound sessions and auth failures…");
+  const res = await runJson(["intrusion"]);
+  show("ids-out", pretty(res.text) + `\n\nexit=${res.code}`);
+};
+
 document.getElementById("eng-refresh").onclick = async () => {
   show("eng-out", "Loading…");
   const res = await runJson(["engines"]);

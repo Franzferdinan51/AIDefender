@@ -82,6 +82,13 @@ class DefenderConfig:
     clamd_enable: bool = False
     clamd_socket: str = ""
     clamd_timeout_seconds: float = 8.0
+    intrusion_auto_block: bool = True
+    intrusion_firewall_block: bool = True
+    intrusion_geo: bool = True
+    intrusion_brute_threshold: int = 4
+    intrusion_scan_ports: int = 8
+    intrusion_window_seconds: float = 300.0
+    intrusion_allow_ips: list = field(default_factory=list)
 
     def ensure_dirs(self) -> "DefenderConfig":
         Path(self.quarantine_dir).mkdir(parents=True, exist_ok=True)
