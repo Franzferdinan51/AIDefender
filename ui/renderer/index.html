@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
+  <title>AIDefender</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <aside>
+    <div class="brand">
+      <div class="shield">AD</div>
+      <div>
+        <strong>AIDefender</strong>
+        <div class="muted">Desktop protection</div>
+      </div>
+    </div>
+    <nav>
+      <button data-tab="dash" class="active">Dashboard</button>
+      <button data-tab="scan">Scan</button>
+      <button data-tab="protect">Protect</button>
+      <button data-tab="quarantine">Quarantine</button>
+      <button data-tab="intel">Definitions</button>
+      <button data-tab="engines">Engines</button>
+    </nav>
+    <div class="cli-pill" id="cli-pill">CLI…</div>
+  </aside>
+  <main>
+    <section id="dash" class="tab active">
+      <h1>Dashboard</h1>
+      <p class="muted">Status of definitions, engines, and always-on protection.</p>
+      <div class="row">
+        <button id="refresh-dash">Refresh</button>
+        <button id="update-defs" class="secondary">Update definitions</button>
+      </div>
+      <pre id="dash-out" class="panel">Loading…</pre>
+    </section>
+    <section id="scan" class="tab">
+      <h1>Scan</h1>
+      <div class="row">
+        <input id="scan-path" type="text" placeholder="File or folder to scan" />
+        <button id="pick-folder">Folder</button>
+        <button id="pick-file">File</button>
+        <button id="run-scan">Scan</button>
+        <label class="check"><input id="scan-quarantine" type="checkbox" /> Quarantine hits</label>
+      </div>
+      <pre id="scan-out" class="panel">Pick a path, then Scan.</pre>
+    </section>
+    <section id="protect" class="tab">
+      <h1>Real-time protect</h1>
+      <p class="muted">Runs one protection tick (files + process + network + persistence). Install the login service for always-on coverage.</p>
+      <div class="row">
+        <button id="protect-once">Protect once</button>
+        <button id="service-install" class="secondary">Install login service</button>
+        <button id="service-status" class="secondary">Service status</button>
+      </div>
+      <pre id="protect-out" class="panel"></pre>
+    </section>
+    <section id="quarantine" class="tab">
+      <h1>Quarantine</h1>
+      <div class="row">
+        <button id="q-refresh">List items</button>
+      </div>
+      <pre id="q-out" class="panel"></pre>
+    </section>
+    <section id="intel" class="tab">
+      <h1>Virus definitions</h1>
+      <p class="muted">Live JSON intel feed. Failed fetches keep the last good database.</p>
+      <div class="row">
+        <button id="intel-update">Pull latest feed</button>
+      </div>
+      <pre id="intel-out" class="panel"></pre>
+    </section>
+    <section id="engines" class="tab">
+      <h1>Engines</h1>
+      <p class="muted">On-access backend, ClamAV, login service, definition version.</p>
+      <div class="row">
+        <button id="eng-refresh">Refresh</button>
+      </div>
+      <pre id="eng-out" class="panel"></pre>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

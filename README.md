@@ -38,6 +38,35 @@ standard library by default; `psutil` + `watchdog` unlock full power.
 - **Multi-engine**: built-in signatures + heuristics + optional **local clamd** (no cloud upload)
 - **Process images**: `memory` hashes running executables against the definition DB
 - **CLI**: human + `--json` output, exit code 1 on threats
+- **Electron UI**: desktop app for scan, protect, quarantine, live definitions
+- **GitHub Releases**: CLI binaries (PyInstaller) and Electron installers (macOS/Windows/Linux)
+
+## Desktop UI
+
+```bash
+cd ui
+npm install
+npm start
+```
+
+Or from the repo after `npm install` in `ui/`:
+
+```bash
+python -m aidefender ui
+```
+
+The UI talks to the shipped CLI (`python -m aidefender --json …`, or a bundled
+PyInstaller binary inside release builds).
+
+## GitHub binaries
+
+Tagged releases (`v*`) build via `.github/workflows/release.yml`:
+
+- `aidefender` CLI for Linux, Windows, and macOS
+- Electron installers: `.dmg` / `.zip` (macOS), NSIS `.exe` / `.zip` (Windows),
+  AppImage / `.tar.gz` (Linux)
+
+https://github.com/Franzferdinan51/AIDefender/releases
 
 ## Quick start
 

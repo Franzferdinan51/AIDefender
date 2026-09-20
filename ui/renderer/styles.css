@@ -1,0 +1,76 @@
+:root {
+  --bg: #0b1220;
+  --panel: #121a2b;
+  --line: #243049;
+  --text: #e8eefc;
+  --muted: #8fa0c3;
+  --accent: #3dd68c;
+  --danger: #ff6b7a;
+  --warn: #f5c15c;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+body { display: flex; }
+aside {
+  width: 220px;
+  background: #080e19;
+  border-right: 1px solid var(--line);
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.brand { display: flex; gap: 10px; align-items: center; }
+.shield {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: linear-gradient(180deg, #3dd68c, #1f8f5a);
+  color: #062416; font-weight: 800; display: grid; place-items: center;
+}
+nav { display: flex; flex-direction: column; gap: 6px; }
+nav button, button {
+  background: #1a2438;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+nav button.active, button:hover { border-color: var(--accent); }
+button.secondary { background: transparent; }
+main { flex: 1; padding: 24px 28px; overflow: auto; }
+.tab { display: none; }
+.tab.active { display: block; }
+.muted { color: var(--muted); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0 16px; }
+input[type="text"] {
+  flex: 1; min-width: 240px;
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  min-height: 220px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.check { font-size: 13px; color: var(--muted); }
+.cli-pill {
+  margin-top: auto;
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 8px;
+}
+h1 { margin: 0 0 6px; font-size: 22px; }

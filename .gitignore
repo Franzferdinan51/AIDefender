@@ -5,6 +5,10 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+ui/node_modules/
+ui/dist/
+ui/out/
+ui/release/
 .DS_Store
 Thumbs.db
 aidefender.log

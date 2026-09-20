@@ -114,6 +114,8 @@ def build_parser() -> argparse.ArgumentParser:
     un = ssub.add_parser("uninstall", help="remove the login service unit")
     un.add_argument("--dest", default=None, help="override unit path")
     ssub.add_parser("status", help="whether the login service unit exists")
+
+    sub.add_parser("ui", help="open the Electron desktop UI")
     return ap
 
 
@@ -371,6 +373,10 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print(f"installed={installed}")
             return 0
+
+    if args.command == "ui":
+        from .desktop import launch_ui
+        return launch_ui()
 
     return 2
 
