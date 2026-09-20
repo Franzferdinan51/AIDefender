@@ -10,7 +10,7 @@ from .protect import ProtectionState, protection_cycle, run_protect, watch_targe
 from .quarantine import quarantine_file
 from .scanner import scan_path
 from .signatures import load_db
-from .watcher import monitor
+from .onaccess import start_file_protection
 
 
 def quick_scan_targets(cfg: DefenderConfig) -> list[str]:
@@ -58,7 +58,7 @@ def run_daemon(
     if protect:
         watch = paths or watch_targets(cfg)
         file_thread = threading.Thread(
-            target=monitor,
+            target=start_file_protection,
             kwargs={"watch": watch, "cfg": cfg, "stop_event": stop},
             daemon=True,
             name="aidefender-files",

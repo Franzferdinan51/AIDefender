@@ -157,6 +157,23 @@ def scan_file(
         features=dict(heur.features),
     )
     _attach_archive_hits(finding, p, db, cfg)
+    return _enrich_clamd(finding, p, cfg)
+
+
+def _enrich_clamd(finding: Finding, path: Path, cfg: DefenderConfig) -> Finding:
+    if finding.verdict == "malicious":
+        return finding
+    if not getattr(cfg, "clamd_enable", False):
+        return finding
+    try:
+        from .clamd import scan_path_clamd
+        hit = scan_path_clamd(path, cfg)
+    except Exception:
+        return finding
+    if hit:
+        finding.verdict = "malicious"
+        finding.score = max(finding.score, 100)
+        finding.reasons.append(f"clamd: {hit}")
     return finding
 
 

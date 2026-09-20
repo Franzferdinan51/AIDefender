@@ -43,7 +43,8 @@ class CliTest(unittest.TestCase):
         self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
         for name in (
             "scan", "analyze", "protect", "monitor", "quarantine", "processes",
-            "network", "update", "daemon", "events", "status",
+            "network", "update", "daemon", "events", "status", "engines",
+            "memory", "service",
         ):
             self.assertIn(name, res.stdout)
 
@@ -163,6 +164,27 @@ class CliTest(unittest.TestCase):
             scan = self.run_cli("--config-dir", str(cfgdir), "scan", str(sample), cwd=ROOT)
             self.assertEqual(scan.returncode, 1, scan.stdout + scan.stderr)
             self.assertIn("MALICIOUS", scan.stdout)
+
+    def test_engines_and_service_cli(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            cfgdir = tmp / "cfg"
+            res = self.run_cli("--config-dir", str(cfgdir), "--json", "engines", cwd=ROOT)
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            payload = json.loads(res.stdout)
+            self.assertIn("on_access", payload)
+            self.assertIn("clamd", payload)
+            dest = tmp / "unit.plist"
+            ins = self.run_cli(
+                "--config-dir", str(cfgdir), "service", "install", "--dest", str(dest), cwd=ROOT,
+            )
+            self.assertEqual(ins.returncode, 0, ins.stdout + ins.stderr)
+            self.assertTrue(dest.exists())
+            un = self.run_cli(
+                "--config-dir", str(cfgdir), "service", "uninstall", "--dest", str(dest), cwd=ROOT,
+            )
+            self.assertEqual(un.returncode, 0, un.stdout + un.stderr)
+            self.assertFalse(dest.exists())
 
 
 if __name__ == "__main__":

@@ -12,7 +12,9 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
-MODEL_VERSION = "aidefender-heuristics-2"
+from .binary import analyze_binary
+
+MODEL_VERSION = "aidefender-heuristics-3"
 
 # Magic prefixes.
 PE_MAGIC = b"MZ"
@@ -169,6 +171,11 @@ def analyze_bytes(name: str, size: int, sample: bytes, head: bytes | None = None
     # Tiny dropper + huge blob heuristics.
     if kind in ("pe", "elf", "macho") and 0 < size < 16 * 1024 and hits:
         add(10, "tiny executable with malicious keywords (possible dropper)")
+    delta, bin_reasons, bin_feat = analyze_binary(sample, kind)
+    if delta:
+        score += delta
+        reasons.extend(bin_reasons)
+        features.update(bin_feat)
     if size > 100 * 1024 * 1024:
         features["huge"] = True  # not scored; scanner may skip body
 

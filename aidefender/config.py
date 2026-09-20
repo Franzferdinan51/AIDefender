@@ -79,6 +79,9 @@ class DefenderConfig:
     signatures_urls: list = field(default_factory=list)
     definition_update_interval_seconds: float = 900.0
     auto_update_definitions: bool = True
+    clamd_enable: bool = False
+    clamd_socket: str = ""
+    clamd_timeout_seconds: float = 8.0
 
     def ensure_dirs(self) -> "DefenderConfig":
         Path(self.quarantine_dir).mkdir(parents=True, exist_ok=True)

@@ -33,6 +33,10 @@ standard library by default; `psutil` + `watchdog` unlock full power.
   refresh it on an interval so new definitions apply without restart.
   A failed fetch keeps the last good database.
 - **Daemon**: periodic sweeps plus live definition refresh
+- **Always-on service**: `service install` writes a login LaunchAgent / systemd user unit / Windows Startup script
+- **On-access**: Linux **fanotify** (ClamAV-style notification mode) when privileged; otherwise FSEvents/ReadDirectoryChanges/polling
+- **Multi-engine**: built-in signatures + heuristics + optional **local clamd** (no cloud upload)
+- **Process images**: `memory` hashes running executables against the definition DB
 - **CLI**: human + `--json` output, exit code 1 on threats
 
 ## Quick start
@@ -84,6 +88,10 @@ aidefender --json update --source ./signatures.json
 aidefender daemon --interval 3600 --auto-quarantine
 aidefender daemon --once
 aidefender daemon --seconds 30
+aidefender engines
+aidefender memory
+aidefender service install
+aidefender service status
 ```
 
 JSON for automation: add `--json` before the subcommand, e.g.
@@ -117,11 +125,17 @@ install.ps1      Windows installer
 
 ## Honest scope
 
-AIDefender is a high-quality user-space defense layer: great for downloads,
-repos, shared folders, and scheduled sweeps. It is **not** a kernel
-antivirus replacement and does not replace OS protections (Gatekeeper /
-XProtect, Defender, SELinux), backups, patching, or a commercial EDR for
-high-risk environments.
+AIDefender now covers the **user-mode stack** commercial AV actually runs
+outside the kernel: always-on login service, on-access file events
+(fanotify on Linux; FSEvents / ReadDirectoryChanges elsewhere), live
+definitions, PE/ELF injection and packer heuristics, process-image
+scanning, and an optional local ClamAV daemon.
+
+It still does **not** ship a signed Windows minifilter, an Apple Endpoint
+Security system extension, or AVG's cloud reputation network. Those need
+vendor certificates and notarization. Use it **with** Gatekeeper /
+XProtect, Windows Defender, or SELinux — not as a silent replacement for
+them in high-risk environments.
 
 ## License
 

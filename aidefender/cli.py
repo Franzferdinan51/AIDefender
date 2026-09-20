@@ -16,6 +16,9 @@ from .protect import run_protect
 from .quarantine import delete_quarantine, list_quarantine, quarantine_file, restore_quarantine
 from .scanner import scan_path
 from .signatures import load_db
+from .engines import engine_status
+from .memory import scan_process_images
+from .service import install_service, service_installed, uninstall_service
 from .updater import load_intel_state, update_signatures
 from .watcher import monitor
 
@@ -98,6 +101,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-n", type=int, default=50, help="max events to show")
 
     p = sub.add_parser("status", help="show config and signature info")
+
+    sub.add_parser("engines", help="show on-access, clamd, service, and definition engines")
+
+    p = sub.add_parser("memory", help="scan executables of running processes")
+    p.add_argument("--limit", type=int, default=120, help="max images to scan")
+
+    p = sub.add_parser("service", help="install always-on protection at login")
+    ssub = p.add_subparsers(dest="scommand", required=True)
+    ins = ssub.add_parser("install", help="write LaunchAgent / systemd user unit / Startup script")
+    ins.add_argument("--dest", default=None, help="override unit path (tests)")
+    un = ssub.add_parser("uninstall", help="remove the login service unit")
+    un.add_argument("--dest", default=None, help="override unit path")
+    ssub.add_parser("status", help="whether the login service unit exists")
     return ap
 
 
@@ -304,6 +320,7 @@ def main(argv: list[str] | None = None) -> int:
                 "burst_file_threshold": cfg.burst_file_threshold,
                 "auto_quarantine": cfg.auto_quarantine,
             },
+            "engines": engine_status(cfg),
         }
         if args.json:
             print(json.dumps(info, indent=2))
@@ -311,6 +328,49 @@ def main(argv: list[str] | None = None) -> int:
             for key, value in info.items():
                 print(f"{key}: {value}")
         return 0
+
+    if args.command == "engines":
+        payload = engine_status(cfg)
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(f"on_access: {payload['on_access']}")
+            print(f"fanotify: {payload['fanotify']}")
+            print(f"clamd: {payload['clamd']}")
+            print(f"service: {payload['service']}")
+            print(f"definitions: {payload['definitions'].get('version')}")
+            print(payload["note"])
+        return 0
+
+    if args.command == "memory":
+        findings = scan_process_images(cfg, limit=args.limit)
+        threats = [f for f in findings if f.verdict in ("malicious", "suspicious")]
+        if args.json:
+            print(json.dumps({"scanned": len(findings), "threats": [f.to_dict() for f in threats]}, indent=2))
+        else:
+            for f in threats:
+                print(f"[{f.verdict.upper()}] {f.path} :: {'; '.join(f.reasons[:4])}")
+            print(f"\nimages={len(findings)} threats={len(threats)}")
+        return 1 if threats else 0
+
+    if args.command == "service":
+        if args.scommand == "install":
+            path = install_service(cfg, dest=args.dest)
+            print(f"installed login service -> {path}")
+            print("On macOS: launchctl load this plist. On Linux: systemctl --user daemon-reload && systemctl --user enable --now aidefender.service")
+            return 0
+        if args.scommand == "uninstall":
+            removed = uninstall_service(dest=args.dest)
+            print("removed" if removed else "not installed")
+            return 0
+        if args.scommand == "status":
+            dest = None
+            installed = service_installed()
+            if args.json:
+                print(json.dumps({"installed": installed}, indent=2))
+            else:
+                print(f"installed={installed}")
+            return 0
 
     return 2
 
