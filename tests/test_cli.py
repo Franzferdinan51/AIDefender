@@ -45,6 +45,7 @@ class CliTest(unittest.TestCase):
             "scan", "analyze", "protect", "monitor", "quarantine", "processes",
             "network", "update", "daemon", "events", "status", "engines",
             "memory", "service", "ui", "intrusion",
+            "allow", "block", "diag", "capture", "inspect", "act", "tools",
         ):
             self.assertIn(name, res.stdout)
 

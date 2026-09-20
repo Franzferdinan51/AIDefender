@@ -98,3 +98,36 @@ def block_ip(
     blocked[ip] = entry
     save_blocked(cfg, blocked)
     return entry
+
+
+def try_firewall_unblock(ip: str) -> tuple[bool, str]:
+    ip = normalize_ip(ip)
+    try:
+        if is_windows() and shutil.which("netsh"):
+            name = f"AIDefender-block-{ip}"
+            res = subprocess.run(
+                ["netsh", "advfirewall", "firewall", "delete", "rule", f"name={name}"],
+                capture_output=True, text=True, timeout=8,
+            )
+            return res.returncode == 0, (res.stdout or res.stderr or "").strip()[:300]
+        if is_linux() and shutil.which("iptables"):
+            res = subprocess.run(
+                ["iptables", "-D", "INPUT", "-s", ip, "-j", "DROP"],
+                capture_output=True, text=True, timeout=8,
+            )
+            return res.returncode == 0, (res.stdout or res.stderr or "").strip()[:300]
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, str(exc)
+    return False, "no supported firewall command"
+
+
+def unblock_ip(cfg: DefenderConfig, ip: str, firewall: bool = False) -> dict:
+    ip = normalize_ip(ip)
+    blocked = load_blocked(cfg)
+    entry = blocked.pop(ip, None)
+    save_blocked(cfg, blocked)
+    fw = {"attempted": False, "ok": False, "detail": ""}
+    if firewall:
+        ok, detail = try_firewall_unblock(ip)
+        fw = {"attempted": True, "ok": ok, "detail": detail}
+    return {"ip": ip, "removed": entry is not None, "previous": entry, "firewall": fw}

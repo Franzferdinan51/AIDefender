@@ -238,6 +238,7 @@ def evaluate_intrusions(
     brute_n = int(getattr(cfg, "intrusion_brute_threshold", 4) or 4)
     scan_n = int(getattr(cfg, "intrusion_scan_ports", 8) or 8)
     window = float(getattr(cfg, "intrusion_window_seconds", 300) or 300)
+    from .allowlist import is_ip_allowed
     allow = {normalize_ip(x) for x in (getattr(cfg, "intrusion_allow_ips", None) or [])}
     alerts: list[IntrusionAlert] = []
 
@@ -247,7 +248,7 @@ def evaluate_intrusions(
 
     for ev in auth_events:
         ip = normalize_ip(ev.ip)
-        if not ip or ip in allow or not is_public_ip(ip):
+        if not ip or ip in allow or is_ip_allowed(cfg, ip) or not is_public_ip(ip):
             continue
         key = ("auth", ip, ev.message[:80])
         if key in state.seen_keys:
@@ -263,7 +264,7 @@ def evaluate_intrusions(
 
     for conn in connections:
         inbound, rip, lport, service = inbound_session(conn)
-        if not rip or rip in allow:
+        if not rip or rip in allow or is_ip_allowed(cfg, rip):
             continue
         if inbound:
             key = ("in", rip, lport, conn.status)
@@ -311,7 +312,7 @@ def evaluate_intrusions(
                 )
 
     for ip, ports in ports_by_ip.items():
-        if len(ports) >= scan_n and is_public_ip(ip) and ip not in allow:
+        if len(ports) >= scan_n and is_public_ip(ip) and ip not in allow and not is_ip_allowed(cfg, ip):
             key = ("scan", ip, int(now // 60))
             if key not in state.seen_keys:
                 state.seen_keys.add(key)
@@ -327,7 +328,7 @@ def evaluate_intrusions(
                 )
 
     for ev in auth_events:
-        if ev.source == "who" and is_public_ip(ev.ip) and ev.ip not in allow:
+        if ev.source == "who" and is_public_ip(ev.ip) and ev.ip not in allow and not is_ip_allowed(cfg, ev.ip):
             key = ("who", ev.ip, ev.user)
             if key not in state.seen_keys:
                 state.seen_keys.add(key)
@@ -345,7 +346,7 @@ def evaluate_intrusions(
     already = load_blocked(cfg)
     out: list[IntrusionAlert] = []
     for alert in alerts:
-        if alert.ip in allow or not is_public_ip(alert.ip):
+        if alert.ip in allow or is_ip_allowed(cfg, alert.ip) or not is_public_ip(alert.ip):
             continue
         if enrich:
             try:

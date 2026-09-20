@@ -55,11 +55,23 @@ def flag_connection(
     conn: Connection,
     bad_ips: set[str] | None = None,
     bad_ports: set[int] | None = None,
+    cfg=None,
 ) -> Connection:
     bad_ips = bad_ips if bad_ips is not None else set(EXAMPLE_BAD_IPS)
     bad_ports = bad_ports if bad_ports is not None else set(EXAMPLE_BAD_PORTS)
     rip, rport = _split_hostport(conn.remote)
     _lip, lport = _split_hostport(conn.local)
+    if cfg is not None:
+        from .allowlist import is_ip_allowed, is_port_allowed
+        why = is_ip_allowed(cfg, rip)
+        if why:
+            conn.suspicious = False
+            conn.reasons = [why]
+            return conn
+        if is_port_allowed(cfg, rport) or is_port_allowed(cfg, lport):
+            conn.suspicious = False
+            conn.reasons = ["allowlisted port"]
+            return conn
     if rip in bad_ips:
         conn.suspicious = True
         conn.reasons.append(f"remote IP on blocklist: {rip}")
@@ -176,7 +188,7 @@ def list_connections(cfg=None, db=None) -> list[Connection]:
     for conn in rows:
         conn.suspicious = False
         conn.reasons = []
-        out.append(flag_connection(conn, bad_ips=ips, bad_ports=ports))
+        out.append(flag_connection(conn, bad_ips=ips, bad_ports=ports, cfg=cfg))
     return out
 
 

@@ -122,6 +122,57 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-block", action="store_true", help="detect only; do not block")
     p.add_argument("--firewall", action="store_true", help="also drop caught public IPs in the OS firewall (opt-in)")
     p.add_argument("--deep-logs", action="store_true", help="also query macOS unified logs (slower)")
+
+    p = sub.add_parser("allow", help="allowlist IPs/CIDRs/ports/processes/paths/hashes the user trusts")
+    asub = p.add_subparsers(dest="alcommand", required=True)
+    asub.add_parser("list", help="show allowlist")
+    ad = asub.add_parser("add", help="add an allowlist entry")
+    ad.add_argument("--ip", default=None)
+    ad.add_argument("--cidr", default=None)
+    ad.add_argument("--port", default=None)
+    ad.add_argument("--process", default=None)
+    ad.add_argument("--path", default=None)
+    ad.add_argument("--hash", dest="file_hash", default=None)
+    ad.add_argument("--note", default="")
+    ar = asub.add_parser("remove", help="remove an allowlist entry")
+    ar.add_argument("--ip", default=None)
+    ar.add_argument("--cidr", default=None)
+    ar.add_argument("--port", default=None)
+    ar.add_argument("--process", default=None)
+    ar.add_argument("--path", default=None)
+    ar.add_argument("--hash", dest="file_hash", default=None)
+
+    p = sub.add_parser("block", help="list/add/remove locally blocked attacker IPs")
+    bsub = p.add_subparsers(dest="blcommand", required=True)
+    bsub.add_parser("list", help="show blocked IPs")
+    ba = bsub.add_parser("add", help="block an IP")
+    ba.add_argument("--ip", required=True)
+    ba.add_argument("--reason", default="operator block")
+    ba.add_argument("--firewall", action="store_true", help="also drop in OS firewall (opt-in)")
+    br = bsub.add_parser("remove", help="unblock an IP")
+    br.add_argument("--ip", required=True)
+    br.add_argument("--firewall", action="store_true")
+
+    p = sub.add_parser("diag", help="netstat-class diagnostics: connections, listeners, ARP, routes, tools")
+    p.add_argument("topic", nargs="?", default="all", help="all|connections|listen|arp|routes|tools")
+
+    p = sub.add_parser("capture", help="bounded receive-only packet capture (tcpdump/tshark if installed)")
+    p.add_argument("--seconds", type=float, default=3.0)
+    p.add_argument("--count", type=int, default=40)
+    p.add_argument("--filter", default="", help="BPF filter, e.g. 'port 22'")
+
+    p = sub.add_parser("inspect", help="inspect an IP (geo, allow/block, live sockets)")
+    p.add_argument("kind", choices=["ip"])
+    p.add_argument("value")
+    p.add_argument("--no-geo", action="store_true")
+
+    p = sub.add_parser("act", help="take a local defensive action")
+    actsub = p.add_subparsers(dest="actcommand", required=True)
+    sp = actsub.add_parser("stop-process", help="SIGTERM a local process (not pid 1 or self)")
+    sp.add_argument("--pid", type=int, required=True)
+    sp.add_argument("--name", default="", help="optional name check")
+
+    sub.add_parser("tools", help="JSON catalog of defensive tools for agents")
     return ap
 
 
@@ -244,7 +295,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
     if args.command == "processes":
-        procs = list_processes()
+        procs = list_processes(cfg=cfg)
         if args.json:
             print(json.dumps([p.to_dict() for p in procs], indent=2))
         else:
@@ -258,7 +309,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "network":
-        conns = list_connections()
+        conns = list_connections(cfg)
         if args.json:
             print(json.dumps([c.to_dict() for c in conns], indent=2))
         else:
@@ -411,6 +462,110 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"             - {ev}")
             print(f"\nintrusions={len(alerts)}")
         return 1 if any(a.severity == "malicious" for a in alerts) else 0
+
+    if args.command == "allow":
+        from .allowlist import add_entry, load_allowlist, remove_entry
+        if args.alcommand == "list":
+            data = load_allowlist(cfg)
+            if args.json:
+                print(json.dumps(data, indent=2))
+            else:
+                for kind, entries in data.items():
+                    print(f"{kind}: {len(entries)}")
+                    for key, meta in entries.items():
+                        print(f"  {key}  {meta.get('note', '')}")
+            return 0
+        pairs = [
+            ("ip", args.ip), ("cidr", args.cidr), ("port", args.port),
+            ("process", args.process), ("path", args.path), ("hash", args.file_hash),
+        ]
+        chosen = [(k, v) for k, v in pairs if v]
+        if not chosen:
+            print("specify --ip/--cidr/--port/--process/--path/--hash", file=sys.stderr)
+            return 2
+        if args.alcommand == "add":
+            out = {}
+            for kind, value in chosen:
+                out[kind] = add_entry(cfg, kind, value, note=getattr(args, "note", "") or "")
+            if args.json:
+                print(json.dumps(out, indent=2))
+            else:
+                print("allowlisted", ", ".join(f"{k}={v}" for k, v in chosen))
+            return 0
+        if args.alcommand == "remove":
+            removed = {kind: remove_entry(cfg, kind, value) for kind, value in chosen}
+            if args.json:
+                print(json.dumps(removed, indent=2))
+            else:
+                print("removed", removed)
+            return 0
+
+    if args.command == "block":
+        from .blocklist import block_ip, load_blocked, unblock_ip
+        if args.blcommand == "list":
+            data = load_blocked(cfg)
+            if args.json:
+                print(json.dumps(data, indent=2))
+            else:
+                for ip, meta in data.items():
+                    print(f"{ip}  {meta.get('reason', '')}")
+                print(f"\nblocked={len(data)}")
+            return 0
+        if args.blcommand == "add":
+            entry = block_ip(cfg, args.ip, args.reason, firewall=bool(args.firewall))
+            print(json.dumps(entry, indent=2) if args.json else f"blocked {args.ip}")
+            return 0
+        if args.blcommand == "remove":
+            entry = unblock_ip(cfg, args.ip, firewall=bool(args.firewall))
+            print(json.dumps(entry, indent=2) if args.json else f"unblocked {args.ip} removed={entry['removed']}")
+            return 0
+
+    if args.command == "diag":
+        from .diag import snapshot
+        snap = snapshot(cfg)
+        topic = (args.topic or "all").lower()
+        if topic == "tools":
+            payload = snap["tools"]
+        elif topic in ("connections", "listen", "arp", "routes"):
+            key = "listeners" if topic == "listen" else topic
+            payload = snap.get(key) if key != "connections" else snap["connections"]
+        else:
+            payload = snap
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(json.dumps(payload, indent=2))
+        return 0
+
+    if args.command == "capture":
+        from .capture import run_capture
+        result = run_capture(seconds=args.seconds, count=args.count, bpf=args.filter, dest_dir=cfg.base_dir)
+        print(json.dumps(result, indent=2) if args.json else json.dumps(result, indent=2))
+        return 0 if result.get("ok") else 1
+
+    if args.command == "inspect":
+        from .diag import inspect_ip
+        fetch = (lambda ip, timeout=3: {"status": "success"}) if args.no_geo else None
+        payload = inspect_ip(args.value, cfg, fetch=fetch, do_dns=not args.no_geo)
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    if args.command == "act":
+        if args.actcommand == "stop-process":
+            from .act import stop_process
+            result = stop_process(args.pid, expected_name=args.name or "")
+            print(json.dumps(result, indent=2) if args.json else result)
+            return 0 if result.get("ok") else 1
+
+    if args.command == "tools":
+        from .catalog import tool_catalog
+        payload = tool_catalog()
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            for tool in payload:
+                print(f"{tool['name']:16} {'ACT' if tool['action'] else 'GET'}  {tool['purpose']}")
+        return 0
 
     return 2
 

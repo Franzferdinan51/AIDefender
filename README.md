@@ -1,6 +1,6 @@
 # AIDefender
 
-Cross-platform **user-mode** defender for **macOS, Linux, and Windows** (v0.7.0).
+Cross-platform **user-mode** defender for **macOS, Linux, and Windows** (v0.8.0).
 
 It scans files, watches folders, flags hostile processes and network sessions,
 detects internet-side logins and port scans, updates malware intel live, and
@@ -115,6 +115,19 @@ aidefender monitor ~/Downloads --auto-quarantine
 aidefender intrusion
 aidefender --json intrusion --no-geo
 aidefender intrusion --firewall          # opt-in OS firewall drop
+aidefender allow add --ip 203.0.113.10 --note "office VPN"
+aidefender allow add --cidr 10.0.0.0/8 --note "home LAN"
+aidefender allow add --process chrome --note "browser"
+aidefender allow add --path /Users/me/lab --note "malware lab folder"
+aidefender allow list
+aidefender block add --ip 198.51.100.9 --reason "caught scanning"
+aidefender block remove --ip 198.51.100.9
+aidefender diag                          # connections, listeners, ARP, routes, tools
+aidefender --json diag tools
+aidefender inspect ip 198.51.100.9 --no-geo
+aidefender capture --seconds 3 --count 40 --filter "port 22"
+aidefender --json tools                  # catalog for agents
+aidefender act stop-process --pid 1234 --name malware
 aidefender quarantine list
 aidefender quarantine restore <id> --dest ./restored.bin
 aidefender processes
@@ -138,6 +151,18 @@ Add `--json` **before** the subcommand for machine-readable output
 
 `scan` itself never opens a network connection. `update`, `analyze`, and
 intrusion geo lookups do.
+
+## For agents
+
+`aidefender --json tools` prints a catalog of every defensive action (scan,
+diag, capture, allow, block, inspect, stop-process, …) with argv templates.
+Prefer `--json` on every command. Capture is **receive-only** and capped
+(time + packet count); it will not inject packets. `act stop-process`
+refuses pid 1 and the defender’s own process.
+
+If `tcpdump` or `tshark` (Wireshark) is installed, `capture` produces a
+flow summary. `diag` always wraps **ss/netstat/arp/route** when those
+binaries exist.
 
 ## Intrusion detection
 

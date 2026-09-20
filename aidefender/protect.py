@@ -77,7 +77,7 @@ def protection_cycle(
         state.file_snap = new_snap
         state.file_findings = findings
 
-    procs = list_processes(db=db)
+    procs = list_processes(db=db, cfg=cfg)
     fresh_procs = new_suspicious_processes(procs, state.process_pids)
     state.process_pids = {p.pid for p in procs}
     state.new_processes = fresh_procs

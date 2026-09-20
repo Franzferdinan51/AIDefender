@@ -97,6 +97,10 @@ def scan_file(
             digest = sha256_of(p, max_bytes=cfg.max_scan_bytes)
         except OSError as exc:
             return Finding(path=str(p), verdict="error", reasons=[f"read failed: {exc}"])
+        from .allowlist import is_file_allowed
+        allowed = is_file_allowed(cfg, path=str(p), sha256=digest)
+        if allowed:
+            return Finding(path=str(p), verdict="clean", reasons=[f"allowlisted: {allowed}"], sha256=digest, score=0)
         hit = db.match_hash(digest)
         if hit:
             return Finding(path=str(p), verdict="malicious", reasons=[f"signature: {hit}"], sha256=digest, score=100)
@@ -110,6 +114,17 @@ def scan_file(
         digest = sha256_of(p)
     except OSError as exc:
         return Finding(path=str(p), verdict="error", reasons=[f"read failed: {exc}"])
+
+    from .allowlist import is_file_allowed
+    allowed = is_file_allowed(cfg, path=str(p), sha256=digest)
+    if allowed:
+        return Finding(
+            path=str(p),
+            verdict="clean",
+            reasons=[f"allowlisted: {allowed}"],
+            sha256=digest,
+            score=0,
+        )
 
     sig_hit = db.match_hash(digest)
     if sig_hit:

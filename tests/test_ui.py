@@ -60,6 +60,8 @@ class UiPackagingTest(unittest.TestCase):
             "blocked-ips.json",
             "local_ai_base_url",
             "Franzferdinan51/AIDefender/releases",
+            "aidefender --json tools",
+            "allow add",
         ):
             self.assertIn(needle, text, needle)
 

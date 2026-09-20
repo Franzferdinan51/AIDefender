@@ -147,7 +147,7 @@ def _via_tasklist() -> list[ProcessInfo] | None:
     return out
 
 
-def list_processes(db=None) -> list[ProcessInfo]:
+def list_processes(db=None, cfg=None) -> list[ProcessInfo]:
     rows: list[ProcessInfo] | None = None
     for source in (_via_psutil, _via_ps, _via_tasklist):
         result = source()
@@ -158,7 +158,16 @@ def list_processes(db=None) -> list[ProcessInfo]:
         return []
     extra_n = db.process_names if db is not None else None
     extra_c = db.process_cmdline if db is not None else None
-    return [flag_process(p, extra_names=extra_n, extra_cmdline=extra_c) for p in rows]
+    flagged = [flag_process(p, extra_names=extra_n, extra_cmdline=extra_c) for p in rows]
+    if cfg is None:
+        return flagged
+    from .allowlist import is_process_allowed
+    for proc in flagged:
+        why = is_process_allowed(cfg, proc.name, proc.exe, proc.cmdline)
+        if why:
+            proc.suspicious = False
+            proc.reasons.append(why)
+    return flagged
 
 
 def suspicious_processes(db=None) -> list[ProcessInfo]:
