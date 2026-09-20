@@ -69,6 +69,13 @@ class DefenderConfig:
     cloud_ai_api_key: str = ""
     ai_timeout_seconds: float = 8.0
     ai_sample_bytes: int = 4096
+    file_settle_seconds: float = 0.25
+    file_cooldown_seconds: float = 0.75
+    burst_window_seconds: float = 8.0
+    burst_file_threshold: int = 25
+    protect_interval_seconds: float = 10.0
+    network_bad_ips: list = field(default_factory=lambda: ["127.0.0.2"])
+    network_bad_ports: list = field(default_factory=lambda: [4444, 5555, 6666, 31337, 12345, 1337, 6667])
 
     def ensure_dirs(self) -> "DefenderConfig":
         Path(self.quarantine_dir).mkdir(parents=True, exist_ok=True)

@@ -41,7 +41,10 @@ class CliTest(unittest.TestCase):
     def test_help_lists_analyze(self):
         res = self.run_cli("--help", cwd=ROOT)
         self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
-        for name in ("scan", "quarantine", "processes", "network", "update", "daemon", "status", "analyze"):
+        for name in (
+            "scan", "analyze", "protect", "monitor", "quarantine", "processes",
+            "network", "update", "daemon", "events", "status",
+        ):
             self.assertIn(name, res.stdout)
 
     def test_analyze_json_uses_local_stub(self):
@@ -88,6 +91,51 @@ class CliTest(unittest.TestCase):
             payload = json.loads(res.stdout)
             analysis = payload[0].get("analysis")
             self.assertEqual(analysis["verdict"], "unavailable")
+
+    def test_protect_once_and_daemon_once(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            cfgdir = tmp / "cfg"
+            watch = tmp / "watch"
+            watch.mkdir()
+            bad = watch / "drop.txt"
+            bad.write_text("realtime token: mimikatz\n", encoding="utf-8")
+            res = self.run_cli(
+                "--config-dir", str(cfgdir), "--json",
+                "protect", "--once", str(watch),
+                cwd=ROOT,
+            )
+            self.assertIn(res.returncode, (0, 1), res.stdout + res.stderr)
+            payload = json.loads(res.stdout)
+            self.assertIn("files", payload)
+            self.assertTrue(
+                any(f.get("verdict") == "malicious" for f in payload["files"]),
+                res.stdout,
+            )
+
+            from aidefender.config import get_config, save_config
+            cfg = get_config(cfgdir)
+            cfg.watch_paths = [str(watch)]
+            save_config(cfg)
+            res2 = self.run_cli(
+                "--config-dir", str(cfgdir),
+                "daemon", "--once", "--no-protect",
+                cwd=ROOT,
+            )
+            self.assertEqual(res2.returncode, 0, res2.stdout + res2.stderr)
+
+    def test_monitor_seconds_stops(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            watch = tmp / "w"
+            watch.mkdir()
+            res = self.run_cli(
+                "--config-dir", str(tmp / "cfg"),
+                "monitor", str(watch), "--seconds", "0.4", "--poll-interval", "0.1",
+                cwd=ROOT,
+            )
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            self.assertIn("monitor", res.stdout.lower())
 
 
 if __name__ == "__main__":

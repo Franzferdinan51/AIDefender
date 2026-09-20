@@ -13,13 +13,19 @@ from dataclasses import dataclass, field
 
 SUSPICIOUS_NAMES = {
     "mimikatz", "pwdump", "psexec", "powersploit", "empire",
-    "metasploit", "meterpreter", "cobaltstrike", "beacon",
+    "metasploit", "meterpreter", "cobaltstrike", "beacon.exe",
     "keylogger", "njrat", "darkcomet", "remcos", "quasar",
+    "lazagne", "procdump", "pypykatz", "hashcat", "minikatz",
+    "xmrig", "nbminer",
 }
 SUSPICIOUS_CMDLINE = [
     "powershell -enc", "frombase64string", "invoke-mimikatz",
-    "downloadstring", "| sh", "curl", "wget", "/dev/tcp",
-    "regsvr32", "rundll32", "schtasks /create",
+    "downloadstring", "| sh", "| bash", "/dev/tcp",
+    "regsvr32", "rundll32 javascript", "schtasks /create",
+    "powershell -nop", "powershell -w hidden", "-encodedcommand",
+    "mshta http", "certutil -decode", "bitsadmin /transfer",
+    "invoke-webrequest", "iex(", "osascript -e",
+    "nc -l", "ncat -l", "socat tcp", "vssadmin delete",
 ]
 
 
@@ -37,7 +43,7 @@ class ProcessInfo:
                 "exe": self.exe, "suspicious": self.suspicious, "reasons": self.reasons}
 
 
-def _flag(proc: ProcessInfo) -> ProcessInfo:
+def flag_process(proc: ProcessInfo) -> ProcessInfo:
     lname = proc.name.lower()
     lcmd = proc.cmdline.lower()
     for bad in SUSPICIOUS_NAMES:
@@ -66,7 +72,7 @@ def _via_psutil() -> list[ProcessInfo] | None:
         try:
             info = p.info
             cmd = " ".join(info.get("cmdline") or [])
-            out.append(_flag(ProcessInfo(
+            out.append(flag_process(ProcessInfo(
                 pid=int(info.get("pid", 0)),
                 name=str(info.get("name") or ""),
                 cmdline=cmd, exe=str(info.get("exe") or ""),
@@ -97,7 +103,7 @@ def _via_ps() -> list[ProcessInfo] | None:
             continue
         name = parts[1].split("/")[-1]
         cmd = parts[2] if len(parts) > 2 else ""
-        out.append(_flag(ProcessInfo(pid=pid, name=name, cmdline=cmd)))
+        out.append(flag_process(ProcessInfo(pid=pid, name=name, cmdline=cmd)))
     return out
 
 
@@ -121,7 +127,7 @@ def _via_tasklist() -> list[ProcessInfo] | None:
                 pid = int(row[1].strip('"'))
             except ValueError:
                 continue
-            out.append(_flag(ProcessInfo(pid=pid, name=name)))
+            out.append(flag_process(ProcessInfo(pid=pid, name=name)))
     except Exception:
         return None
     return out
@@ -137,3 +143,11 @@ def list_processes() -> list[ProcessInfo]:
 
 def suspicious_processes() -> list[ProcessInfo]:
     return [p for p in list_processes() if p.suspicious]
+
+
+def new_suspicious_processes(
+    current: list[ProcessInfo],
+    previous_pids: set[int],
+) -> list[ProcessInfo]:
+    """Processes that are suspicious and were not in the last snapshot."""
+    return [p for p in current if p.suspicious and p.pid not in previous_pids]

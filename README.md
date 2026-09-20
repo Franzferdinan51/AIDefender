@@ -20,9 +20,13 @@ standard library by default; `psutil` + `watchdog` unlock full power.
   to a configured cloud API only when local is unset or unreachable. A
   signature `malicious` finding cannot be downgraded to `clean`.
 - **Quarantine**: isolate / list / restore / delete with metadata
-- **Real-time monitor**: `watchdog` when installed, portable polling fallback
-- **Process guard**: `psutil` → `ps` → `tasklist` fallback chain
-- **Network guard**: risky ports/IPs and Tor-tunnel hints
+- **Real-time protect**: file on-access (settle + debounce + hash cache),
+  process/network snapshot diffs, user persistence dirs, ransomware-like
+  burst alerts, JSONL event log — `watchdog` when installed, polling fallback
+- **Process guard**: `psutil` → `ps` → `tasklist` fallback chain; flags
+  LOLBins, encoded PowerShell, temp-dir executables
+- **Network guard**: risky ports/IPs, Tor, listen-on-malware-port;
+  `psutil` → `ss` → `netstat` fallback
 - **Updater**: fetch merged `signatures.json` from URL or file
 - **Daemon**: periodic sweeps for scheduled protection
 - **CLI**: human + `--json` output, exit code 1 on threats
@@ -63,7 +67,10 @@ python -m aidefender status
 aidefender scan ./suspect-dir --quarantine
 aidefender analyze ./suspect.bin          # local Ollama/LM Studio first, then cloud
 aidefender analyze ./suspect.bin --local-url http://127.0.0.1:1234/v1 --model local-model
-aidefender monitor ~/Downloads ~/Desktop
+aidefender protect ~/Downloads ~/Desktop --auto-quarantine
+aidefender protect --once
+aidefender monitor ~/Downloads ~/Desktop --auto-quarantine
+aidefender events -n 20
 aidefender quarantine list
 aidefender quarantine restore <id> --dest ./restored.bin
 aidefender processes
@@ -71,6 +78,7 @@ aidefender network
 aidefender update
 aidefender daemon --interval 3600 --auto-quarantine
 aidefender daemon --once
+aidefender daemon --seconds 30
 ```
 
 JSON for automation: add `--json` before the subcommand, e.g.

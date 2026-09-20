@@ -49,8 +49,8 @@ SUSPICIOUS_TOKENS = [
     # Script / web droppers
     "eval(atob", "fromcharcode", "document.write(unescape",
     "osascript -e",
-    # Persistence
-    "currentversion\\run", "launchagents", "launchdaemons",
+    # Persistence droppers (path-like tokens inside scripts, not plist filenames)
+    "currentversion\\run", "library/launchagents", "library/launchdaemons",
     # Macro autoexec
     "auto_open", "document_open", "workbook_open",
 ]

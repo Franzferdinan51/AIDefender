@@ -9,8 +9,10 @@ from . import __version__
 from .ai import AnalysisResult, analyze_finding
 from .config import get_config, save_config
 from .daemon import run_daemon
+from .events import load_events
 from .network import list_connections
 from .processes import list_processes
+from .protect import run_protect
 from .quarantine import delete_quarantine, list_quarantine, quarantine_file, restore_quarantine
 from .scanner import scan_path
 from .signatures import load_db
@@ -57,6 +59,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("monitor", help="real-time folder protection (Ctrl+C to stop)")
     p.add_argument("paths", nargs="*", help="folders to watch (defaults to config watch_paths)")
+    p.add_argument("--auto-quarantine", action="store_true", help="quarantine malicious hits")
+    p.add_argument("--poll-interval", type=float, default=1.0, help="polling interval seconds")
+    p.add_argument("--seconds", type=float, default=None, help="stop after N seconds (tests/debug)")
+    p.add_argument("--max-events", type=int, default=None, help="stop after N threat events")
+
+    p = sub.add_parser("protect", help="real-time file + process + network + persistence defense")
+    p.add_argument("paths", nargs="*", help="folders to watch (defaults to config watch_paths)")
+    p.add_argument("--auto-quarantine", action="store_true", help="quarantine malicious hits")
+    p.add_argument("--once", action="store_true", help="single protection tick then exit")
+    p.add_argument("--seconds", type=float, default=None, help="stop after N seconds")
+    p.add_argument("--interval", type=float, default=None, help="tick interval seconds")
 
     p = sub.add_parser("quarantine", help="manage quarantine")
     qsub = p.add_subparsers(dest="qcommand", required=True)
@@ -74,9 +87,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--source", default=None, help="URL or local JSON file (defaults to config signatures_url)")
 
     p = sub.add_parser("daemon", help="run periodic background defense loop")
-    p.add_argument("--interval", type=int, default=3600, help="seconds between sweeps")
+    p.add_argument("--interval", type=int, default=3600, help="seconds between full directory sweeps")
     p.add_argument("--once", action="store_true", help="single sweep then exit")
     p.add_argument("--auto-quarantine", action="store_true", help="quarantine malicious hits during sweeps")
+    p.add_argument("--seconds", type=float, default=None, help="stop after N seconds")
+    p.add_argument("--no-protect", action="store_true", help="disable real-time ticks (sweeps only)")
+
+    p = sub.add_parser("events", help="show recent real-time defense events")
+    p.add_argument("-n", type=int, default=50, help="max events to show")
 
     p = sub.add_parser("status", help="show config and signature info")
     return ap
@@ -145,8 +163,39 @@ def main(argv: list[str] | None = None) -> int:
         return code
 
     if args.command == "monitor":
-        monitor(args.paths or None, cfg=cfg)
+        if args.auto_quarantine:
+            cfg.auto_quarantine = True
+        monitor(
+            args.paths or None,
+            cfg=cfg,
+            max_seconds=args.seconds,
+            max_events=args.max_events,
+            poll_interval=args.poll_interval,
+        )
         return 0
+
+    if args.command == "protect":
+        if args.auto_quarantine:
+            cfg.auto_quarantine = True
+        state = run_protect(
+            cfg,
+            paths=args.paths or None,
+            once=args.once,
+            seconds=args.seconds,
+            interval=args.interval,
+            quiet=args.json,
+        )
+        threats = sum(1 for f in state.file_findings if f.verdict in ("malicious", "suspicious"))
+        threats += len(state.new_processes) + len(state.new_connections)
+        threats += sum(1 for f in state.persistence_findings if f.verdict in ("malicious", "suspicious"))
+        if args.json:
+            print(json.dumps({
+                "files": [f.to_dict() for f in state.file_findings],
+                "processes": [p.to_dict() for p in state.new_processes],
+                "connections": [c.to_dict() for c in state.new_connections],
+                "persistence": [f.to_dict() for f in state.persistence_findings],
+            }, indent=2))
+        return 1 if threats else 0
 
     if args.command == "quarantine":
         if args.qcommand == "list":
@@ -201,7 +250,23 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "daemon":
         if args.auto_quarantine:
             cfg.auto_quarantine = True
-        run_daemon(cfg, interval=args.interval, once=args.once)
+        run_daemon(
+            cfg,
+            interval=args.interval,
+            once=args.once,
+            protect=not args.no_protect,
+            seconds=args.seconds,
+        )
+        return 0
+
+    if args.command == "events":
+        rows = load_events(cfg, limit=args.n)
+        if args.json:
+            print(json.dumps([e.to_dict() for e in rows], indent=2))
+        else:
+            for e in rows:
+                print(f"{e.severity:11} {e.kind:12} {e.message}")
+            print(f"\nevents={len(rows)} log={cfg.log_file}")
         return 0
 
     if args.command == "status":
@@ -220,6 +285,13 @@ def main(argv: list[str] | None = None) -> int:
                 "local_ai_model": cfg.local_ai_model,
                 "cloud_ai_base_url": cfg.cloud_ai_base_url,
                 "cloud_ai_model": cfg.cloud_ai_model,
+            },
+            "realtime": {
+                "watch_paths": cfg.watch_paths,
+                "protect_interval_seconds": cfg.protect_interval_seconds,
+                "file_settle_seconds": cfg.file_settle_seconds,
+                "burst_file_threshold": cfg.burst_file_threshold,
+                "auto_quarantine": cfg.auto_quarantine,
             },
         }
         if args.json:
