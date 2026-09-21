@@ -7,6 +7,14 @@ surface; JSON shapes are additive-only within a minor series.
 
 Added:
 
+- `scan --ai`: opt-in local-first AI-powered triage after the offline
+  antivirus scan. Escalate-only merge; signature/clamd/heuristic-malicious
+  cannot become `clean`; `unavailable` is never implicit clean.
+- `engines` JSON `local_ai` object: configured URL/model plus reachability
+  (`reachable`, `models`, `error`, `latency_ms`).
+- README rewritten as a single current document for 0.11.0 (AI-powered opt-in,
+  antivirus scan/quarantine/real-time protect, honest user-mode limits). Latest
+  GitHub tag remains v0.9.0 until a new `v*` is pushed.
 - `ai status|use|test`: discover LM Studio / Ollama / custom OpenAI-compatible
   backends, list loaded models (HTTP probe plus `lms` enrichment), persist the
   operator's choice, and run a chat roundtrip to prove the connection.

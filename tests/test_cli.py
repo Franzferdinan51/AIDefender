@@ -46,8 +46,13 @@ class CliTest(unittest.TestCase):
             "network", "update", "daemon", "events", "status", "engines",
             "memory", "service", "ui", "intrusion",
             "allow", "block", "diag", "capture", "inspect", "act", "tools",
+            "ai", "config",
         ):
             self.assertIn(name, res.stdout)
+        scan_help = self.run_cli("scan", "--help", cwd=ROOT)
+        self.assertEqual(scan_help.returncode, 0, scan_help.stdout + scan_help.stderr)
+        self.assertIn("--ai", scan_help.stdout)
+        self.assertIn("opt-in", scan_help.stdout)
 
     def test_analyze_json_uses_local_stub(self):
         from openai_stub import start_openai_stub, stop_openai_stub
@@ -166,6 +171,36 @@ class CliTest(unittest.TestCase):
             self.assertEqual(scan.returncode, 1, scan.stdout + scan.stderr)
             self.assertIn("MALICIOUS", scan.stdout)
 
+    def test_scan_ai_opt_in_escalates_via_cli(self):
+        from openai_stub import start_openai_stub, stop_openai_stub
+
+        httpd, url = start_openai_stub(verdict="malicious", reason="cli-scan-ai")
+        self.addCleanup(stop_openai_stub, httpd)
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            cfgdir = tmp / "cfg"
+            sample = tmp / "gray.txt"
+            sample.write_text("odd but not a known signature token\n", encoding="utf-8")
+            self.assertEqual(
+                self.run_cli("--config-dir", str(cfgdir), "config", "set",
+                             "local_ai_base_url", url, cwd=ROOT).returncode, 0)
+            self.assertEqual(
+                self.run_cli("--config-dir", str(cfgdir), "config", "set",
+                             "cloud_ai_base_url", "", cwd=ROOT).returncode, 0)
+            offline = self.run_cli(
+                "--config-dir", str(cfgdir), "--json", "scan", str(sample), cwd=ROOT)
+            self.assertEqual(offline.returncode, 0, offline.stdout + offline.stderr)
+            offline_payload = json.loads(offline.stdout)
+            self.assertNotEqual(offline_payload[0]["verdict"], "malicious")
+            self.assertFalse(offline_payload[0].get("analysis"))
+            res = self.run_cli(
+                "--config-dir", str(cfgdir), "--json", "scan", "--ai", str(sample), cwd=ROOT)
+            self.assertEqual(res.returncode, 1, res.stdout + res.stderr)
+            payload = json.loads(res.stdout)
+            self.assertEqual(payload[0]["verdict"], "malicious")
+            self.assertTrue(any("ai-powered escalate" in r for r in payload[0]["reasons"]))
+            self.assertEqual(payload[0]["analysis"]["verdict"], "malicious")
+
     def test_engines_and_service_cli(self):
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
@@ -175,6 +210,12 @@ class CliTest(unittest.TestCase):
             payload = json.loads(res.stdout)
             self.assertIn("on_access", payload)
             self.assertIn("clamd", payload)
+            self.assertIn("definitions", payload)
+            self.assertIn("counts", payload["definitions"])
+            self.assertIn("local_ai", payload)
+            self.assertIn("reachable", payload["local_ai"])
+            self.assertIn("base_url", payload["local_ai"])
+            self.assertIn("model", payload["local_ai"])
             dest = tmp / "unit.plist"
             ins = self.run_cli(
                 "--config-dir", str(cfgdir), "service", "install", "--dest", str(dest), cwd=ROOT,

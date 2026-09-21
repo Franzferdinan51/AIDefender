@@ -53,6 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("scan", help="scan a file or directory")
     p.add_argument("target", help="file or directory to scan")
     p.add_argument("--quarantine", action="store_true", help="quarantine malicious hits")
+    p.add_argument("--ai", action="store_true", help="opt-in local-first AI triage after the offline scan")
 
     p = sub.add_parser("analyze", help="local-first AI triage of scan artifacts (no full-file upload)")
     p.add_argument("target", help="file or directory to scan then analyze")
@@ -204,6 +205,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "scan":
         db = load_db(cfg.signatures_file)
         findings = scan_path(args.target, db=db, cfg=cfg)
+        if args.ai:
+            from .ai import attach_ai_to_findings
+            attach_ai_to_findings(findings, cfg=cfg)
         if args.quarantine:
             for f in findings:
                 if f.verdict == "malicious":
@@ -242,9 +246,10 @@ def main(argv: list[str] | None = None) -> int:
                     backend="none",
                     error=str(exc),
                 )
-            payload = result.to_dict()
+            from .ai import merge_ai_into_finding
+            merge_ai_into_finding(f, result)
+            payload = (f.analysis or result.to_dict())
             payload["path"] = f.path
-            f.analysis = payload
             analyses.append(payload)
             if not args.json:
                 print(f"[AI {result.backend:5}] {f.path} verdict={result.verdict} confidence={result.confidence}")

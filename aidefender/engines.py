@@ -10,7 +10,7 @@ from .blocklist import load_blocked
 from .updater import load_intel_state
 
 
-def engine_status(cfg: DefenderConfig | None = None) -> dict:
+def engine_status(cfg: DefenderConfig | None = None, local_ai_probe=None) -> dict:
     cfg = cfg or get_config()
     db = load_db(cfg.signatures_file)
     fan_ok, fan_reason = fanotify_supported()
@@ -25,6 +25,16 @@ def engine_status(cfg: DefenderConfig | None = None) -> dict:
         watchdog_ok = True
     except ImportError:
         watchdog_ok = False
+    if local_ai_probe is not None:
+        ai_st = local_ai_probe(cfg)
+    else:
+        from .aibackends import probe_backend
+        ai_st = probe_backend(
+            "local",
+            getattr(cfg, "local_ai_base_url", "") or "",
+            timeout=1.2,
+        )
+    ai_payload = ai_st.to_dict() if hasattr(ai_st, "to_dict") else dict(ai_st)
     return {
         "on_access": on_access_mode(),
         "fanotify": {"available": fan_ok, "detail": fan_reason},
@@ -45,6 +55,14 @@ def engine_status(cfg: DefenderConfig | None = None) -> dict:
             "counts": db.counts(),
             "info": db.info,
             **load_intel_state(cfg),
+        },
+        "local_ai": {
+            "base_url": getattr(cfg, "local_ai_base_url", "") or "",
+            "model": getattr(cfg, "local_ai_model", "") or "",
+            "reachable": bool(ai_payload.get("reachable")),
+            "models": list(ai_payload.get("models") or [])[:12],
+            "error": ai_payload.get("error") or "",
+            "latency_ms": ai_payload.get("latency_ms") or 0,
         },
         "intrusion": {
             "auto_block": bool(getattr(cfg, "intrusion_auto_block", True)),

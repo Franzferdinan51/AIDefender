@@ -110,12 +110,20 @@ class UiPackagingTest(unittest.TestCase):
             "DDOS",
             "counter-AI",
             "Local-first AI assist",
+            "AI-powered opt-in",
+            "scan --ai",
+            "antivirus",
+            "quarantine",
+            "real-time protect",
             "user-mode",
             "minifilter",
             "volumetric",
             "unsigned",
+            "0.11.0",
+            "local_ai",
         ):
             self.assertIn(needle, text, needle)
+        self.assertNotIn("AIDefender.Setup.0.9.0.exe on some tags", text)
 
     def test_readme_names_desktop_operator_surfaces(self):
         text = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -131,6 +139,7 @@ class UiPackagingTest(unittest.TestCase):
             "network",
             "events",
             "analyze",
+            "settings",
         ):
             self.assertIn(needle, section, needle)
 

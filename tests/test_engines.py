@@ -128,11 +128,34 @@ class EngineTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             cfg = get_config(Path(td) / "cfg")
             cfg.ensure_dirs()
-            st = engine_status(cfg)
+            cfg.local_ai_base_url = "http://127.0.0.1:1234/v1"
+            cfg.local_ai_model = "stub-model"
+
+            class _Probe:
+                def __init__(self):
+                    self.reachable = True
+                    self.models = ["stub-model"]
+                    self.error = ""
+                    self.latency_ms = 4
+
+                def to_dict(self):
+                    return {
+                        "reachable": self.reachable,
+                        "models": self.models,
+                        "error": self.error,
+                        "latency_ms": self.latency_ms,
+                    }
+
+            st = engine_status(cfg, local_ai_probe=lambda _c: _Probe())
             self.assertIn("on_access", st)
             self.assertIn("clamd", st)
             self.assertIn("service", st)
+            self.assertIn("definitions", st)
+            self.assertIn("counts", st["definitions"])
             self.assertFalse(st["kernel_minifilter"])
+            self.assertTrue(st["local_ai"]["reachable"])
+            self.assertEqual(st["local_ai"]["model"], "stub-model")
+            self.assertEqual(st["local_ai"]["base_url"], "http://127.0.0.1:1234/v1")
             json.dumps(st)  # must be serializable
 
 

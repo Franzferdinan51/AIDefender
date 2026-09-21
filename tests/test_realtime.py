@@ -76,6 +76,25 @@ class RealtimeTest(unittest.TestCase):
             from aidefender.quarantine import list_quarantine
             self.assertEqual(len(list_quarantine(cfg)), 1)
 
+    def test_poll_tick_auto_quarantine_logs_threat(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            cfg = make_cfg(tmp)
+            cfg.auto_quarantine = True
+            watch = tmp / "watch"
+            watch.mkdir()
+            prev = {}
+            snap, _ = poll_once([watch], prev, cfg, db=builtin_db())
+            dropped = watch / "dropped.txt"
+            dropped.write_text("token mimikatz\n", encoding="utf-8")
+            _, findings = poll_once([watch], snap, cfg, db=builtin_db())
+            self.assertTrue(any(f.verdict == "malicious" for f in findings), findings)
+            self.assertFalse(dropped.exists())
+            from aidefender.quarantine import list_quarantine
+            self.assertEqual(len(list_quarantine(cfg)), 1)
+            events = load_events(cfg, limit=20)
+            self.assertTrue(any(e.kind == "file" and e.severity == "malicious" for e in events))
+
     def test_hash_cache_skips_unchanged(self):
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)

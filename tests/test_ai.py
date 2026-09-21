@@ -8,10 +8,13 @@ from aidefender.ai import (
     artifacts_from_alert,
     artifacts_from_attacking_ai,
     artifacts_from_finding,
+    attach_ai_to_findings,
     lock_signature_verdict,
+    merge_ai_into_finding,
     parse_model_json,
     AnalysisResult,
 )
+from aidefender.allowlist import add_entry
 from aidefender.intrusion import IntrusionAlert
 from aidefender.config import get_config
 from aidefender.scanner import scan_file
@@ -183,6 +186,61 @@ class AiTriageTest(unittest.TestCase):
             down = analyze_artifacts(artifacts_from_alert(alert), cfg=cfg)
             self.assertEqual(down.verdict, "unavailable")
             self.assertNotEqual(down.verdict, "clean")
+
+    def test_opt_in_scan_escalates_non_signature_sample(self):
+        httpd, url = start_openai_stub(verdict="malicious", reason="model-malicious")
+        self.addCleanup(stop_openai_stub, httpd)
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            cfg = make_cfg(tmp)
+            cfg.local_ai_base_url = url
+            sample = tmp / "gray.txt"
+            sample.write_text("odd but not a known signature token\n", encoding="utf-8")
+            from aidefender.scanner import scan_file
+            finding = scan_file(sample, db=builtin_db(), cfg=cfg)
+            self.assertNotEqual(finding.verdict, "malicious")
+            attach_ai_to_findings([finding], cfg=cfg)
+            self.assertEqual(finding.verdict, "malicious")
+            self.assertTrue(any("ai-powered escalate" in r for r in finding.reasons))
+            self.assertIsNotNone(finding.analysis)
+            self.assertEqual(finding.analysis["verdict"], "malicious")
+
+    def test_opt_in_scan_does_not_downgrade_signature_or_allowlist(self):
+        httpd, url = start_openai_stub(verdict="clean", reason="model-clean")
+        self.addCleanup(stop_openai_stub, httpd)
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            cfg = make_cfg(tmp)
+            cfg.local_ai_base_url = url
+            bad = tmp / "sig.txt"
+            bad.write_text("token mimikatz\n", encoding="utf-8")
+            finding = scan_file(bad, db=builtin_db(), cfg=cfg)
+            self.assertEqual(finding.verdict, "malicious")
+            attach_ai_to_findings([finding], cfg=cfg)
+            self.assertEqual(finding.verdict, "malicious")
+            allowed = tmp / "lab.txt"
+            allowed.write_text("odd but not a known signature token\n", encoding="utf-8")
+            add_entry(cfg, "path", str(allowed), note="lab")
+            af = scan_file(allowed, db=builtin_db(), cfg=cfg)
+            self.assertEqual(af.verdict, "clean")
+            attach_ai_to_findings([af], cfg=cfg)
+            self.assertEqual(af.verdict, "clean")
+            self.assertIsNone(af.analysis)
+
+    def test_opt_in_scan_unavailable_keeps_deterministic(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            cfg = make_cfg(tmp)
+            cfg.local_ai_base_url = "http://127.0.0.1:1/v1"
+            sample = tmp / "gray.txt"
+            sample.write_text("odd but not a known signature token\n", encoding="utf-8")
+            finding = scan_file(sample, db=builtin_db(), cfg=cfg)
+            det = finding.verdict
+            attach_ai_to_findings([finding], cfg=cfg)
+            self.assertEqual(finding.verdict, det)
+            self.assertNotEqual(finding.analysis["verdict"], "clean")
+            self.assertEqual(finding.analysis["verdict"], "unavailable")
+            self.assertTrue(any("ai unavailable" in r for r in finding.reasons))
 
 
 if __name__ == "__main__":

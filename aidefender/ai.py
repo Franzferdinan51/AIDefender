@@ -325,3 +325,66 @@ def analyze_finding(
 ) -> AnalysisResult:
     cfg = cfg or get_config()
     return analyze_artifacts(artifacts_from_finding(finding, cfg), cfg=cfg, poster=poster)
+
+
+_VERDICT_RANK = {"clean": 0, "skipped": 1, "error": 2, "unavailable": 2, "suspicious": 3, "malicious": 4}
+
+
+def _is_allowlisted_finding(finding: Finding) -> bool:
+    return any(str(r).lower().startswith("allowlisted") for r in finding.reasons)
+
+
+def merge_ai_into_finding(finding: Finding, result: AnalysisResult) -> Finding:
+    """Escalate-only merge. Never downgrade signature/clamd/heuristic-malicious to clean."""
+    finding.analysis = result.to_dict()
+    if _is_allowlisted_finding(finding):
+        return finding
+    if result.verdict == "unavailable":
+        extra = result.reasons[0] if result.reasons else (result.error or "unavailable")
+        finding.reasons.append(f"ai unavailable: {extra}")
+        return finding
+    if finding.verdict == "malicious" and result.verdict == "clean":
+        finding.reasons.append("ai cannot downgrade signature/heuristic malicious to clean")
+        return finding
+    if finding.signature_hit and result.verdict == "clean":
+        finding.reasons.append("ai cannot downgrade signature finding to clean")
+        finding.verdict = "malicious"
+        return finding
+    if result.verdict in ("suspicious", "malicious"):
+        if _VERDICT_RANK.get(result.verdict, 0) > _VERDICT_RANK.get(finding.verdict, 0):
+            finding.reasons.append(
+                f"ai-powered escalate {finding.verdict}->{result.verdict}: "
+                + "; ".join(result.reasons[:3])
+            )
+            finding.verdict = result.verdict
+            finding.score = max(finding.score, 40 if result.verdict == "suspicious" else 75)
+        else:
+            finding.reasons.extend(f"ai: {r}" for r in result.reasons[:3])
+    return finding
+
+
+def attach_ai_to_findings(
+    findings: list[Finding],
+    cfg: DefenderConfig | None = None,
+    poster: HttpPost | None = None,
+) -> list[Finding]:
+    """Opt-in AI triage after deterministic scan. Skip nested/error/allowlisted."""
+    cfg = cfg or get_config()
+    from .allowlist import is_file_allowed
+
+    for finding in findings:
+        if finding.nested or finding.verdict in ("error", "skipped"):
+            continue
+        if _is_allowlisted_finding(finding) or is_file_allowed(cfg, finding.path, finding.sha256):
+            continue
+        try:
+            result = analyze_finding(finding, cfg=cfg, poster=poster)
+        except Exception as exc:  # noqa: BLE001
+            result = AnalysisResult(
+                verdict="unavailable",
+                reasons=[f"analysis failed: {exc}"],
+                backend="none",
+                error=str(exc),
+            )
+        merge_ai_into_finding(finding, result)
+    return findings
