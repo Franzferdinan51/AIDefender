@@ -1,41 +1,77 @@
 # AIDefender
 
-Cross-platform **user-mode** defender for **macOS, Linux, and Windows** (v0.10.0).
+User-mode defender for **macOS, Linux, and Windows**. Package version **0.10.0**.
 
-It scans files, watches folders, flags hostile processes and network sessions,
-detects internet-side logins and port scans, updates malware intel live, and
-can run as a login service or an Electron desktop app. People and **agents**
-share the same CLI: `--json` on every command, plus `tools` for a catalog of
-defensive actions.
+It scans files, watches folders, flags hostile processes and sockets, detects
+internet-side logins, port scans, and host-level floods, updates malware intel
+from a JSON feed, and can run as a login service or an Electron app. People and
+**agents** use the same CLI (`--json` on every command; `tools` lists actions).
 
-No kernel drivers. The default install is **stdlib-only**; `psutil` and
-`watchdog` are optional extras. OS firewall drops are **opt-in** so a default
-install cannot lock you out of your own machine.
+The default install is **Python 3.9+ stdlib only**. `psutil` and `watchdog` are
+optional. OS firewall drops are **opt-in** so a default install cannot lock you
+out of your own machine.
 
-Repository: https://github.com/Franzferdinan51/AIDefender  
-Releases: https://github.com/Franzferdinan51/AIDefender/releases
+- Source: https://github.com/Franzferdinan51/AIDefender
+- Binaries: https://github.com/Franzferdinan51/AIDefender/releases (latest **tagged**
+  release may lag `main`; the tree version is 0.10.0)
+
+## Honest scope
+
+AIDefender is a **user-mode** / **user-space** defense layer: files, processes,
+sockets, login logs, and optional local AI triage. It is **not** a kernel
+antivirus, EDR, or network scrubbing service.
+
+**It does**
+
+- Hash/string/heuristic scans (including nested zip/tar with size/depth caps)
+- Prompt-injection / jailbreak / LLM-exfil **text** and LLM-API **cmdlines/sockets**
+  (deterministic tokens, no live attacking model required)
+- Host IDS: inbound sessions on admin ports, brute-force, port-scan, and **ddos**
+  (many public sources or SYN_RECV on one listener)
+- Local blocklist + allowlist (IPs, CIDRs, ports, processes, paths, hashes)
+- Optional OS firewall drop **only** if you set `intrusion_firewall_block` or pass
+  `--firewall`
+- Local-first AI assist on scan findings, attacking-AI artifacts, and
+  DDOS/intrusion alerts (Ollama/LM Studio, then optional cloud). Detectors still
+  fire with no model. The model cannot silently turn malicious/DDOS into `clean`.
+  `unavailable` is never implicit `clean`.
+- Bounded receive-only packet **summary** if `tcpdump`/`tshark` is installed
+- Electron UI as a `--json` front-end for the same CLI
+
+**It does not**
+
+- Ship a signed Windows minifilter, Apple Endpoint Security system extension,
+  or anything that inspects every packet in the kernel
+- Stop a **volumetric DDoS** that already saturates the uplink (no SYN cookies,
+  no NIC drop, no CDN/BGP scrubbing). Host detection + local blocklist is the bar
+- Guarantee every jailbreak, autonomous agent, or novel LLM API is caught
+- Replace Gatekeeper / XProtect, Windows Defender, or SELinux
+- Upload full files to VirusTotal or other clouds
+- Inject packets, exploit hosts, or kill pid 1 / itself
+- Sign or notarize macOS/Windows installers (binaries are **unsigned**; first-open may need right-click → Open)
+
+Use it **with** the OS defender, not instead of it, in high-risk environments.
 
 ## Install
 
-### Prebuilt binaries (recommended)
+### Prebuilt binaries
 
-Download from [Releases](https://github.com/Franzferdinan51/AIDefender/releases):
+From [Releases](https://github.com/Franzferdinan51/AIDefender/releases):
 
 | Platform | Desktop UI | CLI |
 | --- | --- | --- |
 | macOS (Apple Silicon) | `AIDefender-*-arm64.dmg` | `aidefender-macos-arm64` |
-| Windows | `AIDefender-Setup-*.exe` | `aidefender-windows-x64.exe` |
+| Windows | `AIDefender.Setup-*.exe` / `AIDefender-Setup-*.exe` | `aidefender-windows-x64.exe` |
 | Linux | `AIDefender-*.AppImage` | `aidefender-linux-x64` |
 
-macOS builds are unsigned — first launch may need **right-click → Open**.
+Also published: zip/tar.gz of the UI. Names follow electron-builder (`AIDefender.Setup.0.9.0.exe` on some tags).
 
 ### From source (macOS / Linux)
 
 ```bash
 ./install.sh
 source .venv/bin/activate
-aidefender status
-aidefender scan ~/Downloads
+python -m aidefender status
 ```
 
 ### From source (Windows PowerShell)
@@ -43,212 +79,153 @@ aidefender scan ~/Downloads
 ```powershell
 .\install.ps1
 .\.venv\Scripts\Activate.ps1
-aidefender status
-aidefender scan $HOME\Downloads
-```
-
-### pip (any OS)
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate        # Windows: .\.venv\Scripts\Activate.ps1
-pip install .
-pip install ".[full]"            # optional: psutil + watchdog
 python -m aidefender status
 ```
 
-Requires **Python 3.9+**.
+### pip
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .\.venv\Scripts\Activate.ps1
+pip install .
+pip install ".[full]"       # optional psutil + watchdog
+python -m aidefender status
+```
 
 ## Quick start
 
 ```bash
-aidefender status
-aidefender scan ~/Downloads
-aidefender protect --once
-aidefender intrusion --no-geo    # skip geo if you are offline
-aidefender update                # pull live definitions
-aidefender --json tools          # catalog for agents
-aidefender diag                  # netstat/ARP/routes
-aidefender allow add --cidr 10.0.0.0/8 --note "home LAN"
-aidefender service install       # start at login
+python -m aidefender status
+python -m aidefender scan ~/Downloads
+python -m aidefender protect --once
+python -m aidefender --json intrusion --no-geo
+python -m aidefender update
+python -m aidefender --json tools
+python -m aidefender allow add --cidr 10.0.0.0/8 --note "home LAN"
+python -m aidefender service install
 ```
 
-Safe signature check (do **not** write the live EICAR string to disk on macOS;
-endpoint protection often blocks the file):
+Safe signature check (do **not** write the live EICAR string to disk on macOS):
 
 ```bash
 echo 'cli test token: mimikatz' > /tmp/aidefender-sig-test.txt
-aidefender scan /tmp/aidefender-sig-test.txt   # expect MALICIOUS, exit 1
+python -m aidefender scan /tmp/aidefender-sig-test.txt   # MALICIOUS, exit 1
 ```
 
-The EICAR hash and string still live **in memory** in the built-in database
-for scanners that need the industry test file.
+EICAR hash/string exist **in memory** in the built-in database only.
 
 ## What it does
 
-- **Scan** — SHA-256 hashes, string signatures, explainable heuristics (0–100),
-  nested zip/tar with zip-bomb caps, PE/ELF injection and packer stamps,
-  plus **counter-AI vs attacking AI**: prompt-injection / jailbreak / LLM-exfil
-  (normalized so paraphrases still flag; no live model required)
-- **Unauthorized agent/LLM use** — process cmdlines and sockets aimed at common
-  LLM APIs (`api.openai.com`, Anthropic, Groq, OpenRouter, Azure OpenAI, …)
-  or agent-runtime tokens; suppress with `allow add --process` / `--ip`
-- **DDOS protection** (host-level): many public sources or SYN_RECV floods on
-  a listener raise a **ddos** alert distinct from port-scan/brute-force;
-  offenders can enter the local blocklist; OS firewall stays opt-in
-- **Local-first AI assist** on scan findings, attacking-AI artifacts, and
-  DDOS/intrusion alerts (`analyze` / `analyze_artifacts`). Deterministic
-  detectors stay the source of truth; the model cannot downgrade malicious
-  or DDOS to clean; `unavailable` is never implicit clean
-- **Quarantine** — isolate / list / restore / delete with metadata
-- **Protect / monitor** — on-access file events (Linux fanotify when available;
-  otherwise FSEvents / ReadDirectoryChanges / polling), settle + debounce,
-  ransomware-like burst alerts, process and network diffs, user persistence dirs
-- **Intrusion detection** — inbound SSH/RDP/VNC/SMB (and similar) from **public**
-  IPs, failed-login brute force, port-scan bursts; reverse DNS + geo
-  (city / region / country / ISP); local blocklist. LAN and loopback are ignored
-- **Live definitions** — `update` merges the GitHub JSON feed (hashes, family
-  strings, C2 hints, process tokens). protect/daemon refresh on an interval.
-  A failed fetch keeps the last good database
-- **Local-first AI triage** — `analyze` sends **artifacts only** (hash, verdict,
-  score, reasons, bounded sample) to localhost OpenAI-compatible servers
-  (Ollama / LM Studio) and falls back to a configured cloud API. A signature
-  `malicious` finding cannot be downgraded to `clean`
-- **Optional ClamAV** — local `clamd` only (no cloud upload), off by default
-- **Desktop UI** — Electron app for scan, protect, quarantine, definitions,
-  engines, and intrusion
-- **Allowlist** — IPs, CIDRs, ports, process names, paths, and SHA-256 hashes
-  the user trusts; skipped by scan, process, network, and intrusion checks
-- **Diagnostics** — `diag` wraps ss/netstat, listeners, ARP, and routes;
-  `capture` is a bounded receive-only packet summary via tcpdump/tshark
-  (Wireshark) when installed
-- **Local actions** — block/unblock IPs, quarantine files, SIGTERM a local
-  process (never pid 1 or the defender itself)
-- **Always-on** — `service install` writes a user LaunchAgent, systemd user
-  unit, or Windows Startup script
+- **Scan** — SHA-256, string signatures, explainable heuristics (0–100), nested
+  zip/tar with zip-bomb caps, PE/ELF injection and packer stamps, **counter-AI**
+  prompt-injection / jailbreak / LLM-exfil (normalized paraphrases). `scan` is
+  offline (no network).
+- **Analyze** — local-first OpenAI-compatible triage of **artifacts** (hash,
+  verdict, reasons, bounded sample), not a full-file upload. Same lock: no
+  silent downgrade of deterministic malicious/DDOS.
+- **Protect / monitor / daemon** — on-access files (Linux fanotify when
+  privileged; else FSEvents / ReadDirectoryChanges / polling), process and
+  network diffs, persistence dirs, intrusion/DDOS ticks, optional auto-update
+  of definitions.
+- **Intrusion / DDOS** — inbound SSH/RDP/VNC/SMB (etc.) from **public** IPs,
+  brute-force, port-scan, many-source or SYN_RECV **ddos**. Geo/rDNS optional.
+  LAN/loopback ignored. Evaluate a saved snapshot with `--connections-json`.
+- **Processes / network / memory** — flag suspicious cmdlines, risky remotes,
+  running image hashes; LLM API hosts unless allowlisted.
+- **Allow / block** — `allowlist.json` and `blocked-ips.json` under the config
+  dir. Firewall mutation is opt-in.
+- **Diag / capture / inspect** — ss/netstat, listeners, ARP, routes, tool
+  inventory; bounded receive-only capture; IP geo + live sockets.
+- **Quarantine, events, engines, service, ui** — isolate files, JSONL log,
+  engine status, login unit, Electron window.
+- **Live definitions** — `update` merges GitHub `signatures.json`. A failed
+  fetch keeps the last good database.
 
 ## Commands
 
 ```bash
-aidefender scan ./suspect-dir --quarantine
-aidefender analyze ./suspect.bin
-aidefender analyze ./suspect.bin --local-url http://127.0.0.1:1234/v1 --model local-model
-aidefender protect ~/Downloads ~/Desktop --auto-quarantine
-aidefender protect --once
-aidefender monitor ~/Downloads --auto-quarantine
-aidefender intrusion
-aidefender --json intrusion --no-geo
-aidefender intrusion --firewall          # opt-in OS firewall drop
-aidefender allow add --ip 203.0.113.10 --note "office VPN"
-aidefender allow add --cidr 10.0.0.0/8 --note "home LAN"
-aidefender allow add --process chrome --note "browser"
-aidefender allow add --path /Users/me/lab --note "malware lab folder"
-aidefender allow list
-aidefender block add --ip 198.51.100.9 --reason "caught scanning"
-aidefender block remove --ip 198.51.100.9
-aidefender diag                          # connections, listeners, ARP, routes, tools
-aidefender --json diag tools
-aidefender inspect ip 198.51.100.9 --no-geo
-aidefender capture --seconds 3 --count 40 --filter "port 22"
-aidefender --json tools                  # catalog for agents
-aidefender act stop-process --pid 1234 --name malware
-aidefender quarantine list
-aidefender quarantine restore <id> --dest ./restored.bin
-aidefender processes
-aidefender network
-aidefender memory
-aidefender engines
-aidefender events -n 20
-aidefender update
-aidefender --json update --source ./signatures.json
-aidefender daemon --interval 3600 --auto-quarantine
-aidefender daemon --once
-aidefender service install
-aidefender service status
-aidefender ui
-aidefender --json status
+python -m aidefender scan ./dir --quarantine
+python -m aidefender analyze ./file --local-url http://127.0.0.1:1234/v1
+python -m aidefender protect --once --auto-quarantine
+python -m aidefender monitor ~/Downloads --seconds 30
+python -m aidefender --json intrusion --no-geo
+python -m aidefender intrusion --firewall
+python -m aidefender --json intrusion --no-geo --no-block --connections-json ./flood.json
+python -m aidefender allow add --ip 203.0.113.10 --note "office VPN"
+python -m aidefender allow add --process curl --note "my research agent"
+python -m aidefender allow list
+python -m aidefender block add --ip 198.51.100.9
+python -m aidefender diag
+python -m aidefender --json diag
+python -m aidefender inspect ip 198.51.100.9 --no-geo
+python -m aidefender capture --seconds 3 --count 40 --filter "port 22"
+python -m aidefender --json tools
+python -m aidefender act stop-process --pid 1234 --name malware
+python -m aidefender processes
+python -m aidefender network
+python -m aidefender memory
+python -m aidefender events -n 20
+python -m aidefender engines
+python -m aidefender update
+python -m aidefender daemon --once
+python -m aidefender service install
+python -m aidefender ui
+python -m aidefender --json status
 ```
 
-Add `--json` **before** the subcommand for machine-readable output
-(`aidefender --json scan ./dir`). Exit code **1** means threats (or, for
-`intrusion`, a malicious finding).
-
-`scan` itself never opens a network connection. `update`, `analyze`, and
-intrusion geo lookups do.
+`--json` goes **before** the subcommand. Exit **1** means threats (or a
+malicious/DDOS intrusion finding). `scan` does not open a network connection;
+`update`, `analyze`, and intrusion geo do.
 
 ## For agents
 
-`aidefender --json tools` prints a catalog of every defensive action (scan,
-diag, capture, allow, block, inspect, stop-process, …) with argv templates.
-Prefer `--json` on every command. Capture is **receive-only** and capped
-(time + packet count); it will not inject packets. `act stop-process`
-refuses pid 1 and the defender’s own process.
-
-If `tcpdump` or `tshark` (Wireshark) is installed, `capture` produces a
-flow summary. `diag` always wraps **ss/netstat/arp/route** when those
-binaries exist.
-
-## Intrusion detection
-
-Caught public IPs are stored in `blocked-ips.json` under the config directory
-and honored by the network guard. Trusted items go in `allowlist.json` (or
-`aidefender allow add`).
-
-| Default | Behavior |
-| --- | --- |
-| Local blocklist | **on** (`intrusion_auto_block`) |
-| OS firewall drop | **off** — set `intrusion_firewall_block` or pass `--firewall` |
-| Geo / rDNS | **on** — disable with `--no-geo` or `intrusion_geo: false` |
-| Allowlist | `allowlist.json` plus `intrusion_allow_ips` in config |
-
-`--no-block` is detect-only. Private, loopback, and link-local addresses are
-never treated as intruders.
+`python -m aidefender --json tools` is the catalog. Prefer `--json` everywhere.
+Do not inject packets. Do not SIGTERM pid 1 or the defender process. Allowlist
+the operator’s own local LLM/agent if it would otherwise match API-host rules.
 
 ## Configuration
 
-First run writes a config directory:
+Config directory (override with `--config-dir`):
 
 - macOS: `~/Library/Application Support/AIDefender/`
 - Linux: `~/.config/aidefender/`
 - Windows: `%APPDATA%\AIDefender\`
 
-Override with `--config-dir`. Useful keys in `config.json`:
+Also written there: `allowlist.json`, `blocked-ips.json`, `intel-state.json`,
+quarantine dir, event log.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `auto_quarantine` | `false` | Move malicious hits during protect/monitor/daemon |
+| `auto_quarantine` | `false` | Quarantine malicious hits in protect/monitor/daemon |
 | `watch_paths` | Downloads, Desktop | Folders for protect/daemon |
 | `local_ai_base_url` | `http://127.0.0.1:11434/v1` | Ollama-compatible endpoint |
 | `cloud_ai_base_url` | empty | Cloud OpenAI-compatible fallback |
 | `signatures_url` | GitHub `signatures.json` | Live intel feed |
-| `auto_update_definitions` | `true` | Refresh feed in protect/daemon (~15 min) |
-| `clamd_enable` | `false` | Use a local ClamAV daemon |
+| `auto_update_definitions` | `true` | Refresh feed in long-running protect/daemon |
+| `clamd_enable` | `false` | Local ClamAV daemon only |
 | `intrusion_auto_block` | `true` | Persist caught public IPs locally |
-| `intrusion_firewall_block` | `false` | Also drop them in the OS firewall |
+| `intrusion_firewall_block` | `false` | OS firewall drop (opt-in) |
 | `intrusion_allow_ips` | `[]` | Extra IPs merged into the allowlist |
+| `intrusion_ddos_sources` | `12` | Distinct public sources → `ddos` |
+| `intrusion_ddos_syn` | `20` | SYN_RECV count → `ddos` |
 
-Cloud AI key: `AIDEFENDER_CLOUD_AI_API_KEY` or `OPENAI_API_KEY`.
+Cloud key: `AIDEFENDER_CLOUD_AI_API_KEY` or `OPENAI_API_KEY`. LM Studio:
+`http://127.0.0.1:1234/v1`.
 
-LM Studio example: set `local_ai_base_url` to `http://127.0.0.1:1234/v1`.
-
-## Desktop UI (from source)
+## Desktop UI
 
 ```bash
-cd ui
-npm install
-npm start
+cd ui && npm install && npm start
+# or
+python -m aidefender ui
 ```
 
-Or `python -m aidefender ui` after `npm install` in `ui/`. Release installers
-bundle a CLI binary next to the app.
-
-The window is a `--json` front-end for the same CLI. Existing tabs:
-Dashboard (status/engines), Scan, Protect, Quarantine list, Definitions
-(`update`), Intrusion, and Engines. Operator surfaces in the same window:
-**allowlist** (`allow list` / `allow add` / `allow remove`), **diag**,
-**processes**, **network**, **events**, and **analyze**. Scan/analyze result
-text includes rogue-AI reasons when the CLI returns them. Packet `capture`,
-OS `--firewall` block, and `act stop-process` stay CLI-only.
+The window is a `--json` front-end. Tabs: Dashboard (`status`/`engines`), Scan,
+Protect, Quarantine list, Definitions (`update`), Intrusion, Engines, **analyze**,
+**allowlist** (`allow list` / `add` / `remove`), **diag**, **processes**,
+**network**, **events**. Result text is shown as the CLI returned it (including
+rogue-AI / DDOS reasons). Packet `capture`, OS `--firewall`, and
+`act stop-process` stay CLI-only.
 
 ## Tests and CI
 
@@ -256,33 +233,20 @@ OS `--firewall` block, and `act stop-process` stay CLI-only.
 python -m unittest discover -s tests -v
 ```
 
-GitHub Actions `ci` installs the package from committed files and runs that
-suite on Ubuntu, macOS, and Windows (Python 3.9 / 3.11 / 3.12).
+GitHub Actions `ci` does `pip install .` then that suite on Ubuntu, macOS, and
+Windows (Python 3.9 / 3.11 / 3.12). Tagged `v*` builds CLI + Electron installers.
 
 ## Layout
 
 ```text
-aidefender/      core package (scan, protect, intrusion, allow/block, diag, CLI)
-ui/              Electron desktop app
-tests/           stdlib unittest suite
-signatures.json  community intel feed (merged by `update`)
-packaging/       PyInstaller spec for release CLI binaries
-.github/         CI + tagged-release workflows
-install.sh       macOS/Linux installer
-install.ps1      Windows installer
+aidefender/      scan, protect, intrusion/DDOS, rogue-AI, allow/block, diag, AI, CLI
+ui/              Electron desktop (renderer is a classic <script src>)
+tests/           stdlib unittest (including renderer_harness.js)
+signatures.json  community intel feed
+packaging/       PyInstaller spec
+.github/         ci.yml + release.yml
+install.sh / install.ps1
 ```
-
-## Honest scope
-
-AIDefender is the **user-mode** layer commercial AV runs outside the kernel:
-login service, on-access file events, live definitions, PE/ELF heuristics,
-process-image scanning, optional local clamd, network/login IDS, allowlisting,
-and netstat/packet diagnostics. Capture never injects packets.
-
-It does **not** ship a signed Windows minifilter, an Apple Endpoint Security
-system extension, or a vendor cloud-reputation network. Use it **with**
-Gatekeeper / XProtect, Windows Defender, or SELinux — not as a silent
-replacement in high-risk environments.
 
 ## License
 

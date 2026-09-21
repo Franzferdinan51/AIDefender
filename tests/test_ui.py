@@ -102,6 +102,10 @@ class UiPackagingTest(unittest.TestCase):
             "DDOS",
             "counter-AI",
             "Local-first AI assist",
+            "user-mode",
+            "minifilter",
+            "volumetric",
+            "unsigned",
         ):
             self.assertIn(needle, text, needle)
 
