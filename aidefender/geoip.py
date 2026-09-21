@@ -11,6 +11,7 @@ import urllib.error
 import urllib.request
 from typing import Callable
 
+from . import __version__
 from .ipaddr import is_public_ip, normalize_ip
 
 GeoFetch = Callable[[str, float], dict]
@@ -31,7 +32,9 @@ def reverse_dns(ip: str, timeout: float = 1.5) -> str:
 
 def fetch_ip_api(ip: str, timeout: float = 3.0) -> dict:
     url = f"http://ip-api.com/json/{ip}?fields=status,message,country,regionName,city,isp,org,as,lat,lon,query,reverse"
-    req = urllib.request.Request(url, headers={"User-Agent": "AIDefender/0.7"})
+    req = urllib.request.Request(
+        url, headers={"User-Agent": f"AIDefender/{__version__}"}
+    )
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
         return json.loads(resp.read().decode("utf-8", errors="replace"))
 

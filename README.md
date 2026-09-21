@@ -16,9 +16,7 @@ out of your own machine.
 
 - Source: https://github.com/Franzferdinan51/AIDefender
 - Binaries: https://github.com/Franzferdinan51/AIDefender/releases — the latest
-  **tagged** GitHub Release is **v0.9.0**; it lags this `main` tree (0.11.0).
-  Install from source for current behavior. Pushing a new `v*` tag rebuilds CLI
-  + Electron installers.
+  **tagged** GitHub Release is **v0.11.0**. Installers are **unsigned**.
 
 ## Honest scope
 
@@ -80,12 +78,9 @@ Use it **with** the OS defender, not instead of it, in high-risk environments.
 
 ### Prebuilt binaries
 
-From [Releases](https://github.com/Franzferdinan51/AIDefender/releases).
-Tagged assets follow electron-builder / PyInstaller names (the v0.9.0 tag
-shipped `AIDefender-0.9.0-arm64.dmg`, `AIDefender.Setup.0.9.0.exe`,
-`AIDefender-0.9.0.AppImage`, and CLI `aidefender-macos-arm64` /
-`aidefender-windows-x64.exe` / `aidefender-linux-x64`). A future `v*` tag
-uses the same pattern with that version number.
+From [Releases](https://github.com/Franzferdinan51/AIDefender/releases) tag
+**v0.11.0**. CLI names are unique per platform so Linux and macOS do not
+overwrite each other. Desktop names come from electron-builder.
 
 | Platform | Desktop UI | CLI |
 | --- | --- | --- |
@@ -93,9 +88,8 @@ uses the same pattern with that version number.
 | Windows | `AIDefender.Setup.*.exe` / `AIDefender-*-win.zip` | `aidefender-windows-x64.exe` |
 | Linux | `AIDefender-*.AppImage` (+ tar.gz) | `aidefender-linux-x64` |
 
-Those installers are **unsigned**. For 0.11.0 behavior (AI-powered `scan --ai`,
-Settings/`config`, `engines.local_ai`), use source below until a matching tag
-exists.
+Those installers are **unsigned** (first-open on macOS may need right-click →
+Open). Source install below matches the same 0.11.0 tree.
 
 ### From source (macOS / Linux)
 

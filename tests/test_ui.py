@@ -89,6 +89,25 @@ class UiPackagingTest(unittest.TestCase):
         self.assertIn("electron-builder", wf)
         self.assertIn("action-gh-release", wf)
         self.assertIn("tags:", wf)
+        names = [
+            "aidefender-linux-x64",
+            "aidefender-macos-arm64",
+            "aidefender-windows-x64.exe",
+        ]
+        for name in names:
+            self.assertIn(name, wf)
+        self.assertEqual(len(names), len(set(names)))
+        publish = wf.split("Publish GitHub Release", 1)[-1]
+        self.assertIn("aidefender-linux-x64", publish)
+        self.assertIn("aidefender-macos-arm64", publish)
+        self.assertIn("aidefender-windows-x64.exe", publish)
+        files_lines = [
+            ln.strip().rstrip("\\")
+            for ln in publish.split("files:", 1)[-1].splitlines()
+            if ln.strip()
+        ]
+        self.assertNotIn("artifacts/**/*", files_lines)
+        self.assertNotIn("artifacts/**/aidefender", files_lines)
 
     def test_readme_documents_shipped_product(self):
         text = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -120,10 +139,13 @@ class UiPackagingTest(unittest.TestCase):
             "volumetric",
             "unsigned",
             "0.11.0",
+            "v0.11.0",
             "local_ai",
         ):
             self.assertIn(needle, text, needle)
         self.assertNotIn("AIDefender.Setup.0.9.0.exe on some tags", text)
+        self.assertNotIn("latest tagged GitHub Release is **v0.9.0**", text)
+        self.assertNotIn("it lags this `main` tree", text)
 
     def test_readme_names_desktop_operator_surfaces(self):
         text = (ROOT / "README.md").read_text(encoding="utf-8")

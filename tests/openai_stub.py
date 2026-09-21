@@ -12,8 +12,11 @@ def start_openai_stub(
     confidence: float = 0.66,
     raw_content: str | None = None,
 ):
+    recorded = {"user_agent": ""}
+
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):
+            recorded["user_agent"] = self.headers.get("User-Agent") or ""
             length = int(self.headers.get("Content-Length") or "0")
             if length:
                 self.rfile.read(length)
@@ -35,6 +38,7 @@ def start_openai_stub(
             return
 
     httpd = HTTPServer(("127.0.0.1", 0), Handler)
+    httpd.recorded = recorded  # type: ignore[attr-defined]
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     port = httpd.server_address[1]

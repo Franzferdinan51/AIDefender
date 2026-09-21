@@ -15,6 +15,7 @@ import urllib.request
 from dataclasses import asdict, dataclass, field
 from typing import Callable
 
+from . import __version__
 from .ai import _chat_complete, stdlib_post
 from .config import DefenderConfig, get_config
 
@@ -52,7 +53,13 @@ def models_url(base_url: str) -> str:
 
 
 def stdlib_get_json(url: str, timeout: float = 3.0) -> dict:
-    req = urllib.request.Request(url, headers={"Accept": "application/json"})  # noqa: S310
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": f"AIDefender/{__version__}",
+        },
+    )  # noqa: S310
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         charset = resp.headers.get_content_charset() or "utf-8"
         text = resp.read().decode(charset, errors="replace")

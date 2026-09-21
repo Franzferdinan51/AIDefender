@@ -16,10 +16,13 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact: aidefender-cli-linux-x64
+            release_name: aidefender-linux-x64
           - os: windows-latest
             artifact: aidefender-cli-windows-x64
+            release_name: aidefender-windows-x64.exe
           - os: macos-latest
             artifact: aidefender-cli-macos
+            release_name: aidefender-macos-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -32,12 +35,22 @@ jobs:
           python -m pip install pyinstaller
           python -m pip install -e .
           pyinstaller --noconfirm packaging/aidefender.spec
+      - name: Stage uniquely named CLI for GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f dist/aidefender.exe ]]; then
+            cp dist/aidefender.exe "dist/${{ matrix.release_name }}"
+          else
+            cp dist/aidefender "dist/${{ matrix.release_name }}"
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: |
             dist/aidefender
             dist/aidefender.exe
+            dist/${{ matrix.release_name }}
 
   ui:
     needs: cli
@@ -64,6 +77,22 @@ jobs:
         with:
           name: ${{ matrix.cli_artifact }}
           path: ui/resources
+      - name: Keep Electron extraResources as aidefender(.exe)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ui/resources
+          if [[ -f ui/resources/dist/aidefender ]]; then
+            mv ui/resources/dist/aidefender ui/resources/aidefender
+          fi
+          if [[ -f ui/resources/dist/aidefender.exe ]]; then
+            mv ui/resources/dist/aidefender.exe ui/resources/aidefender.exe
+          fi
+          if [[ ! -f ui/resources/aidefender && ! -f ui/resources/aidefender.exe ]]; then
+            echo "CLI binary missing under ui/resources" >&2
+            ls -laR ui/resources || true
+            exit 1
+          fi
       - name: Install UI deps
         working-directory: ui
         run: npm install
@@ -94,4 +123,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: artifacts/**/*
+          files: |
+            artifacts/**/aidefender-linux-x64
+            artifacts/**/aidefender-macos-arm64
+            artifacts/**/aidefender-windows-x64.exe
+            artifacts/**/*.dmg
+            artifacts/**/*.AppImage
+            artifacts/**/*.zip
+            artifacts/**/*.tar.gz
+            artifacts/**/AIDefender*.exe
+            artifacts/**/AIDefender Setup*.exe

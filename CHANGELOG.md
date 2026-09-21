@@ -13,8 +13,8 @@ Added:
 - `engines` JSON `local_ai` object: configured URL/model plus reachability
   (`reachable`, `models`, `error`, `latency_ms`).
 - README rewritten as a single current document for 0.11.0 (AI-powered opt-in,
-  antivirus scan/quarantine/real-time protect, honest user-mode limits). Latest
-  GitHub tag remains v0.9.0 until a new `v*` is pushed.
+  antivirus scan/quarantine/real-time protect, honest user-mode limits). GitHub
+  Release tag is **v0.11.0**.
 - `ai status|use|test`: discover LM Studio / Ollama / custom OpenAI-compatible
   backends, list loaded models (HTTP probe plus `lms` enrichment), persist the
   operator's choice, and run a chat roundtrip to prove the connection.
@@ -29,7 +29,12 @@ Added:
 
 Fixed:
 
-- HTTP `User-Agent` now reports the real package version (was pinned to 0.4).
+- HTTP `User-Agent` now reports the real package version on intel fetch, geo
+  lookup, and AI POST (was pinned to 0.4 / 0.7).
+- GitHub Release CLI assets are uniquely named per platform
+  (`aidefender-linux-x64`, `aidefender-macos-arm64`,
+  `aidefender-windows-x64.exe`) so Linux and macOS no longer collide as
+  `aidefender`.
 
 ## [0.10.0] - 2026-09-20
 

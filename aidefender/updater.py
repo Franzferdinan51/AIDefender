@@ -16,6 +16,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable
 
+from . import __version__
 from .config import DefenderConfig, get_config
 from .events import DefenseEvent, append_event
 from .signatures import SignatureDB, invalidate_cache, load_db, merge_feed, save_db
@@ -40,7 +41,9 @@ class UpdateResult:
 
 def fetch_json(source: str, timeout: int = 20) -> dict:
     if source.startswith(("http://", "https://")):
-        req = urllib.request.Request(source, headers={"User-Agent": "AIDefender/0.4"})
+        req = urllib.request.Request(
+            source, headers={"User-Agent": f"AIDefender/{__version__}"}
+        )
         with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
             return json.loads(resp.read().decode("utf-8"))
     return json.loads(Path(source).read_text(encoding="utf-8"))

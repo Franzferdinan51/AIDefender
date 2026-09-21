@@ -27,7 +27,8 @@
         "from": "resources/",
         "to": ".",
         "filter": [
-          "**/*"
+          "aidefender",
+          "aidefender.exe"
         ]
       }
     ],
