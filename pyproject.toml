@@ -1,6 +1,6 @@
 [project]
 name = "aidefender"
-version = "0.10.0"
+version = "0.11.0"
 description = "AI-assisted defender: on-access protection, live definitions, PE/ELF heuristics, optional ClamAV, login service for macOS, Linux and Windows."
 readme = "README.md"
 requires-python = ">=3.9"

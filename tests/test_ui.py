@@ -47,6 +47,9 @@ class UiPackagingTest(unittest.TestCase):
         ):
             self.assertIn(needle, js, needle)
             self.assertIn(needle, html, needle)
+        for needle in ("settings", "ai", "config"):
+            self.assertIn(needle, js, needle)
+            self.assertIn(needle, html, needle)
         for argv in (
             '["scan"]',
             '["protect", "--once"]',
@@ -63,6 +66,11 @@ class UiPackagingTest(unittest.TestCase):
             '["network"]',
             '["events"',
             '["analyze"]',
+            '["ai", "status"]',
+            '["ai", "use"]',
+            '["ai", "test"]',
+            '["config", "get"]',
+            '["config", "set"]',
         ):
             self.assertIn(argv, js, argv)
         for tab in (
@@ -70,7 +78,7 @@ class UiPackagingTest(unittest.TestCase):
             'data-tab="quarantine"', 'data-tab="intel"', 'data-tab="intrusion"',
             'data-tab="engines"', 'data-tab="analyze"', 'data-tab="allow"',
             'data-tab="diag"', 'data-tab="processes"', 'data-tab="network"',
-            'data-tab="events"',
+            'data-tab="events"', 'data-tab="settings"',
         ):
             self.assertIn(tab, html, tab)
         self.assertIn("window.aidefender", js)

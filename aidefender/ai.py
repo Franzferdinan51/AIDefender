@@ -226,9 +226,13 @@ def _chat_complete(
             {"role": "user", "content": json.dumps(artifacts, ensure_ascii=False)},
         ],
     }
+    try:
+        from . import __version__ as _pkg_version
+    except ImportError:  # pragma: no cover
+        _pkg_version = "0.0"
     headers = {
         "Content-Type": "application/json",
-        "User-Agent": "AIDefender/0.4",
+        "User-Agent": f"AIDefender/{_pkg_version}",
         "Accept": "application/json",
     }
     if api_key:

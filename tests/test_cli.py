@@ -205,6 +205,55 @@ class CliTest(unittest.TestCase):
             payload = json.loads(res.stdout or "[]")
             self.assertIsInstance(payload, list)
 
+    def test_help_lists_ai_and_config(self):
+        res = self.run_cli("--help", cwd=ROOT)
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        self.assertIn("ai", res.stdout)
+        self.assertIn("config", res.stdout)
+
+    def test_config_set_get_roundtrip(self):
+        with tempfile.TemporaryDirectory() as td:
+            cfgdir = str(Path(td) / "cfg")
+            res = self.run_cli("--config-dir", cfgdir, "config", "set", "local_ai_model", "lm-model", cwd=ROOT)
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            res = self.run_cli("--config-dir", cfgdir, "--json", "config", "get", "local_ai_model", cwd=ROOT)
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            self.assertEqual(json.loads(res.stdout)["local_ai_model"], "lm-model")
+
+    def test_config_set_clamps_and_rejects_secrets(self):
+        with tempfile.TemporaryDirectory() as td:
+            cfgdir = str(Path(td) / "cfg")
+            res = self.run_cli("--config-dir", cfgdir, "config", "set", "heuristic_malicious", "999", cwd=ROOT)
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            self.assertIn("clamped", res.stdout)
+            res = self.run_cli("--config-dir", cfgdir, "config", "get", "heuristic_malicious", cwd=ROOT)
+            self.assertIn("100", res.stdout)
+            res = self.run_cli("--config-dir", cfgdir, "config", "set", "cloud_ai_api_key", "sekret", cwd=ROOT)
+            self.assertEqual(res.returncode, 2, res.stdout + res.stderr)
+            res = self.run_cli("--config-dir", cfgdir, "--json", "config", "get", cwd=ROOT)
+            payload = json.loads(res.stdout)
+            self.assertNotIn("cloud_ai_api_key", payload)
+            self.assertIn("local_ai_base_url", payload)
+
+    def test_ai_use_persists_preset(self):
+        with tempfile.TemporaryDirectory() as td:
+            cfgdir = str(Path(td) / "cfg")
+            res = self.run_cli("--config-dir", cfgdir, "--json", "ai", "use", "lmstudio", "--model", "m", cwd=ROOT)
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            payload = json.loads(res.stdout)
+            self.assertEqual(payload["url"], "http://127.0.0.1:1234/v1")
+            self.assertEqual(payload["model"], "m")
+
+    def test_ai_status_always_reports(self):
+        # Probes the live network, so reachability varies — but the command
+        # itself must always exit 0 with a parseable backends list.
+        with tempfile.TemporaryDirectory() as td:
+            res = self.run_cli("--config-dir", str(Path(td) / "cfg"), "--json", "ai", "status", cwd=ROOT)
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            payload = json.loads(res.stdout)
+            self.assertIn("backends", payload)
+            self.assertTrue(any(b["name"] == "lmstudio" for b in payload["backends"]))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -174,6 +174,23 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--pid", type=int, required=True)
     sp.add_argument("--name", default="", help="optional name check")
 
+    p = sub.add_parser("ai", help="local AI backends: detect LM Studio/Ollama, select, test")
+    aisub = p.add_subparsers(dest="aicommand", required=True)
+    aisub.add_parser("status", help="probe LM Studio / Ollama / configured URL for models")
+    au = aisub.add_parser("use", help="point local AI at lmstudio|ollama preset or a base URL")
+    au.add_argument("target", help="lmstudio, ollama, or http(s) base URL")
+    au.add_argument("--model", default="", help="model id to use")
+    at = aisub.add_parser("test", help="chat roundtrip against the configured local backend")
+    at.add_argument("--model", default="", help="override model id for this test")
+
+    p = sub.add_parser("config", help="view or change settings (secrets stay in env vars)")
+    csub = p.add_subparsers(dest="cfgcommand", required=True)
+    cg = csub.add_parser("get", help="show settings (redacted)")
+    cg.add_argument("key", nargs="?", default=None, help="single setting key (default: all settable)")
+    cs = csub.add_parser("set", help="change one setting")
+    cs.add_argument("key", help="setting key from `config get`")
+    cs.add_argument("value", help="new value (bool/int/float/comma lists)")
+
     sub.add_parser("tools", help="JSON catalog of defensive tools for agents")
     return ap
 
@@ -584,6 +601,95 @@ def main(argv: list[str] | None = None) -> int:
             for tool in payload:
                 print(f"{tool['name']:16} {'ACT' if tool['action'] else 'GET'}  {tool['purpose']}")
         return 0
+
+    if args.command == "ai":
+        from .aibackends import detect_backends, test_roundtrip, use_backend
+        if args.aicommand == "status":
+            backends = detect_backends(cfg)
+            payload = {
+                "active": {"url": cfg.local_ai_base_url, "model": cfg.local_ai_model},
+                "backends": [b.to_dict() for b in backends],
+            }
+            if args.json:
+                print(json.dumps(payload, indent=2))
+            else:
+                print(f"active: {cfg.local_ai_base_url} model={cfg.local_ai_model or '(default)'}")
+                for b in backends:
+                    state = "UP " if b.reachable else "DOWN"
+                    models = ", ".join(b.models[:6]) or "(no models listed)"
+                    print(f"[{state}] {b.name:8} {b.base_url} {b.latency_ms}ms :: {models}")
+                    if b.error:
+                        print(f"         error: {b.error}")
+                if not any(b.reachable for b in backends):
+                    print("hint: start LM Studio server (`lms server start`) or Ollama (`ollama serve`),")
+                    print("      then `aidefender ai use lmstudio --model <id>` (see `ai status` models).")
+            return 0
+        if args.aicommand == "use":
+            try:
+                use_backend(cfg, args.target, args.model)
+            except ValueError as exc:
+                print(f"error: {exc}", file=sys.stderr)
+                return 2
+            save_config(cfg)
+            if args.json:
+                print(json.dumps({"url": cfg.local_ai_base_url, "model": cfg.local_ai_model}, indent=2))
+            else:
+                print(f"local AI -> {cfg.local_ai_base_url} model={cfg.local_ai_model or '(default)'}")
+            return 0
+        if args.aicommand == "test":
+            model = args.model or cfg.local_ai_model
+            result = test_roundtrip(cfg.local_ai_base_url, model, cfg.local_ai_api_key,
+                                    timeout=cfg.ai_timeout_seconds + 7.0)
+            if args.json:
+                print(json.dumps(result, indent=2))
+            else:
+                if result["ok"]:
+                    print(f"OK {cfg.local_ai_base_url} model={model or '(default)'} {result['latency_ms']}ms")
+                else:
+                    print(f"FAILED: {result['error']}")
+            return 0 if result["ok"] else 1
+
+    if args.command == "config":
+        from .config import SETTABLE, coerce_value, redacted_dict
+        if args.cfgcommand == "get":
+            data = redacted_dict(cfg)
+            if args.key:
+                if args.key not in SETTABLE:
+                    print(f"unknown setting: {args.key}", file=sys.stderr)
+                    print(f"settable: {', '.join(sorted(SETTABLE))}", file=sys.stderr)
+                    return 2
+                value = data[args.key]
+                if args.json:
+                    print(json.dumps({args.key: value}, indent=2))
+                else:
+                    print(f"{args.key} = {value!r}")
+                return 0
+            view = {key: data[key] for key in sorted(SETTABLE)}
+            view["_api_key_hint"] = data["_api_key_hint"]
+            if args.json:
+                print(json.dumps(view, indent=2))
+            else:
+                for key in sorted(SETTABLE):
+                    print(f"{key} = {data[key]!r}")
+                print(f"\n{data['_api_key_hint']}")
+            return 0
+        if args.cfgcommand == "set":
+            try:
+                value = coerce_value(args.key, args.value)
+            except ValueError as exc:
+                print(f"error: {exc}", file=sys.stderr)
+                return 2
+            setattr(cfg, args.key, value)
+            from .config import validate_config
+            warnings = validate_config(cfg)
+            save_config(cfg)
+            if args.json:
+                print(json.dumps({"key": args.key, "value": getattr(cfg, args.key), "warnings": warnings}, indent=2))
+            else:
+                print(f"{args.key} = {getattr(cfg, args.key)!r}")
+                for warning in warnings:
+                    print(f"warning: {warning}")
+            return 0
 
     return 2
 

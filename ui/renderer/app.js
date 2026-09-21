@@ -14,7 +14,12 @@ var CLI_COMMANDS = {
   diag: ["diag"],
   processes: ["processes"],
   network: ["network"],
-  events: ["events", "-n", "50"]
+  events: ["events", "-n", "50"],
+  "ai-status": ["ai", "status"],
+  "ai-use": ["ai", "use"],
+  "ai-test": ["ai", "test"],
+  "config-get": ["config", "get"],
+  "config-set": ["config", "set"]
 };
 
 function pretty(value) {
@@ -206,6 +211,44 @@ document.getElementById("run-events").onclick = async function () {
   show("events-out", "Loading events…");
   const res = await runJson(CLI_COMMANDS.events);
   show("events-out", pretty(res.text) + "\n\nexit=" + res.code);
+};
+
+document.getElementById("ai-detect").onclick = async function () {
+  show("ai-out", "Probing LM Studio / Ollama / configured URL…");
+  const res = await runJson(CLI_COMMANDS["ai-status"]);
+  show("ai-out", pretty(res.text) + "\n\nexit=" + res.code);
+};
+document.getElementById("ai-use").onclick = async function () {
+  const custom = document.getElementById("ai-url").value.trim();
+  const target = custom || document.getElementById("ai-preset").value;
+  const model = document.getElementById("ai-model").value.trim();
+  const args = CLI_COMMANDS["ai-use"].concat([target]);
+  if (model) args.push("--model", model);
+  show("ai-out", "Switching backend…");
+  const res = await runJson(args);
+  show("ai-out", pretty(res.text) + "\n\nexit=" + res.code);
+};
+document.getElementById("ai-test").onclick = async function () {
+  show("ai-out", "Testing chat roundtrip…");
+  const res = await runJson(CLI_COMMANDS["ai-test"]);
+  show("ai-out", pretty(res.text) + "\n\nexit=" + res.code);
+};
+
+document.getElementById("cfg-load").onclick = async function () {
+  show("cfg-out", "Loading settings…");
+  const res = await runJson(CLI_COMMANDS["config-get"]);
+  show("cfg-out", pretty(res.text) + "\n\nexit=" + res.code);
+};
+document.getElementById("cfg-save").onclick = async function () {
+  const key = document.getElementById("cfg-key").value.trim();
+  const value = document.getElementById("cfg-value").value;
+  if (!key) {
+    show("cfg-out", "Enter a setting key first (Load settings to list them).");
+    return;
+  }
+  show("cfg-out", "Saving…");
+  const res = await runJson(CLI_COMMANDS["config-set"].concat([key, value]));
+  show("cfg-out", pretty(res.text) + "\n\nexit=" + res.code);
 };
 
 (async function () {

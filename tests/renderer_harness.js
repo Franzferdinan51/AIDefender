@@ -61,7 +61,9 @@ parseTabs(html).forEach((tab) => {
   "protect-once", "service-install", "service-status", "q-refresh",
   "intel-update", "ids-check", "eng-refresh", "pick-analyze", "run-analyze",
   "allow-list", "allow-add", "allow-remove", "run-diag", "run-processes",
-  "run-network", "run-events",
+  "run-network", "run-events", "ai-detect", "ai-preset", "ai-url", "ai-model",
+  "ai-use", "ai-test", "ai-out", "cfg-load", "cfg-key", "cfg-value",
+  "cfg-save", "cfg-out",
 ].forEach((id) => {
   if (!byId[id]) byId[id] = new Elem(id);
 });
@@ -98,7 +100,7 @@ try {
 }
 
 const tabs = parseTabs(html);
-const needed = ["dash", "scan", "protect", "quarantine", "intel", "intrusion", "engines", "analyze", "allow", "diag", "processes", "network", "events"];
+const needed = ["dash", "scan", "protect", "quarantine", "intel", "intrusion", "engines", "analyze", "allow", "diag", "processes", "network", "events", "settings"];
 const missing = needed.filter((t) => tabs.indexOf(t) < 0);
 if (missing.length) {
   console.error("MISSING_TABS", missing.join(","));

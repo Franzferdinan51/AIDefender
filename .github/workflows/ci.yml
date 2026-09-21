@@ -20,3 +20,9 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Smoke test CLI
         run: python -m aidefender --help
+      - name: Set up Node for renderer harness
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Renderer harness (UI wiring)
+        run: node tests/renderer_harness.js

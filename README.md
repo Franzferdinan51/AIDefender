@@ -1,6 +1,6 @@
 # AIDefender
 
-User-mode defender for **macOS, Linux, and Windows**. Package version **0.10.0**.
+User-mode defender for **macOS, Linux, and Windows**. Package version **0.11.0**.
 
 It scans files, watches folders, flags hostile processes and sockets, detects
 internet-side logins, port scans, and host-level floods, updates malware intel
@@ -13,7 +13,7 @@ out of your own machine.
 
 - Source: https://github.com/Franzferdinan51/AIDefender
 - Binaries: https://github.com/Franzferdinan51/AIDefender/releases (latest **tagged**
-  release may lag `main`; the tree version is 0.10.0)
+  release may lag `main`; the tree version is 0.11.0)
 
 ## Honest scope
 
@@ -36,7 +36,9 @@ antivirus, EDR, or network scrubbing service.
   fire with no model. The model cannot silently turn malicious/DDOS into `clean`.
   `unavailable` is never implicit `clean`.
 - Bounded receive-only packet **summary** if `tcpdump`/`tshark` is installed
-- Electron UI as a `--json` front-end for the same CLI
+- AI backend discovery: probe LM Studio / Ollama for loaded models, select one,
+  test the roundtrip (`ai status|use|test`)
+- Electron UI as a `--json` front-end for the same CLI, including a Settings tab
 
 **It does not**
 
@@ -146,6 +148,11 @@ EICAR hash/string exist **in memory** in the built-in database only.
 ```bash
 python -m aidefender scan ./dir --quarantine
 python -m aidefender analyze ./file --local-url http://127.0.0.1:1234/v1
+python -m aidefender ai status
+python -m aidefender ai use lmstudio --model <id-from-status>
+python -m aidefender ai test
+python -m aidefender config get
+python -m aidefender config set heuristic_malicious 80
 python -m aidefender protect --once --auto-quarantine
 python -m aidefender monitor ~/Downloads --seconds 30
 python -m aidefender --json intrusion --no-geo
@@ -212,6 +219,27 @@ quarantine dir, event log.
 Cloud key: `AIDEFENDER_CLOUD_AI_API_KEY` or `OPENAI_API_KEY`. LM Studio:
 `http://127.0.0.1:1234/v1`.
 
+Change settings from the CLI or the desktop Settings tab (never by hand-editing
+unless you must — values are validated and clamped on load):
+
+```bash
+python -m aidefender config get                     # all settable keys
+python -m aidefender config set watch_paths ~/Downloads,~/Desktop
+```
+
+### Security-AI backends (LM Studio)
+
+1. In LM Studio: load a model, then start the server (Developer tab, or
+   `lms server start`). The OpenAI-compatible endpoint is
+   `http://127.0.0.1:1234/v1`.
+2. `python -m aidefender ai status` — lists reachable backends and models.
+3. `python -m aidefender ai use lmstudio --model <id>` — persist the choice.
+4. `python -m aidefender ai test` — one chat roundtrip to prove it answers.
+5. `python -m aidefender analyze ./file` — triage now uses that backend.
+
+Ollama works the same way (`ai use ollama`). Only scan artifacts (hash,
+verdict, reasons, bounded sample) are ever sent — never full files.
+
 ## Desktop UI
 
 ```bash
@@ -223,7 +251,8 @@ python -m aidefender ui
 The window is a `--json` front-end. Tabs: Dashboard (`status`/`engines`), Scan,
 Protect, Quarantine list, Definitions (`update`), Intrusion, Engines, **analyze**,
 **allowlist** (`allow list` / `add` / `remove`), **diag**, **processes**,
-**network**, **events**. Result text is shown as the CLI returned it (including
+**network**, **events**, **settings** (Security-AI backend detect/use/test plus
+`config get` / `config set`). Result text is shown as the CLI returned it (including
 rogue-AI / DDOS reasons). Packet `capture`, OS `--firewall`, and
 `act stop-process` stay CLI-only.
 
@@ -246,6 +275,7 @@ signatures.json  community intel feed
 packaging/       PyInstaller spec
 .github/         ci.yml + release.yml
 install.sh / install.ps1
+CHANGELOG.md     release notes
 ```
 
 ## License

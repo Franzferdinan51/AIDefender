@@ -18,6 +18,11 @@ CATALOG = [
     {"name": "quarantine", "argv": ["quarantine", "list"], "json": True, "action": True, "purpose": "List or restore/delete quarantined files."},
     {"name": "stop-process", "argv": ["act", "stop-process", "--pid", "<pid>"], "json": True, "action": True, "purpose": "SIGTERM a local process. Refuses pid 1 and self. Prefer --name match."},
     {"name": "update", "argv": ["update"], "json": True, "action": True, "purpose": "Refresh live malware/intel definitions."},
+    {"name": "ai-status", "argv": ["ai", "status"], "json": True, "action": False, "purpose": "Probe LM Studio / Ollama / configured URL for reachable models."},
+    {"name": "ai-use", "argv": ["ai", "use", "lmstudio", "--model", "<id>"], "json": True, "action": True, "purpose": "Point local AI at the lmstudio|ollama preset or a base URL."},
+    {"name": "ai-test", "argv": ["ai", "test"], "json": True, "action": False, "purpose": "Chat roundtrip against the configured local AI backend."},
+    {"name": "config-get", "argv": ["config", "get"], "json": True, "action": False, "purpose": "Show settable settings (secrets redacted)."},
+    {"name": "config-set", "argv": ["config", "set", "<key>", "<value>"], "json": True, "action": True, "purpose": "Change one setting; validated and clamped."},
     {"name": "engines", "argv": ["engines"], "json": True, "action": False, "purpose": "Show which defense engines are live."},
     {"name": "events", "argv": ["events", "-n", "50"], "json": True, "action": False, "purpose": "Recent defense event log."},
 ]

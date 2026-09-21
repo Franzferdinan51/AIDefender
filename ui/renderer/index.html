@@ -29,6 +29,7 @@
       <button data-tab="processes">Processes</button>
       <button data-tab="network">Network</button>
       <button data-tab="events">Events</button>
+      <button data-tab="settings">Settings</button>
     </nav>
     <div class="cli-pill" id="cli-pill">CLI…</div>
   </aside>
@@ -155,6 +156,32 @@
         <button id="run-events">Load events</button>
       </div>
       <pre id="events-out" class="panel"></pre>
+    </section>
+    <section id="settings" class="tab">
+      <h1>Settings</h1>
+      <p class="muted">Security-AI backends (LM Studio / Ollama) and defense settings. API keys stay in environment variables, never here.</p>
+      <h2 class="sub">Security AI</h2>
+      <div class="row">
+        <button id="ai-detect">Detect backends</button>
+        <select id="ai-preset">
+          <option value="lmstudio">lmstudio (:1234)</option>
+          <option value="ollama">ollama (:11434)</option>
+        </select>
+        <input id="ai-url" type="text" placeholder="or custom base URL" />
+        <input id="ai-model" type="text" placeholder="model id" />
+        <button id="ai-use">Use backend</button>
+        <button id="ai-test" class="secondary">Test connection</button>
+      </div>
+      <pre id="ai-out" class="panel">Detect backends to list reachable models.</pre>
+      <h2 class="sub">Defense settings</h2>
+      <p class="muted">Same keys as <code>config get</code> / <code>config set</code>; values are validated on save.</p>
+      <div class="row">
+        <button id="cfg-load">Load settings</button>
+        <input id="cfg-key" type="text" placeholder="setting key" />
+        <input id="cfg-value" type="text" placeholder="value" />
+        <button id="cfg-save">Save setting</button>
+      </div>
+      <pre id="cfg-out" class="panel">Load settings to see every key and value.</pre>
     </section>
   </main>
   <script src="app.js"></script>

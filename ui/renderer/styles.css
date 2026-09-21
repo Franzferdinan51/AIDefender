@@ -79,3 +79,4 @@ input[type="text"] {
   padding: 8px;
 }
 h1 { margin: 0 0 6px; font-size: 22px; }
+h2.sub { margin: 18px 0 4px; font-size: 15px; color: var(--text); }
